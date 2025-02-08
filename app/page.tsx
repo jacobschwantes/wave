@@ -4,17 +4,31 @@ import { SignOut } from "@/components/auth/signout-button";
 
 export default async function Home() {
 	const session = await auth();
-	if (session) {
-		return (
-			<div>
-				You are signed in
-				<SignOut />
-			</div>
-		);
-	}
+
 	return (
-		<div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-			<SignIn />
-		</div>
+		<main className="wave-bg min-h-screen relative">
+			<div className="wave-container absolute inset-0">
+				<div className="wave"></div>
+				<div className="wave"></div>
+				<div className="wave"></div>
+			</div>
+
+			<div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
+				<div className="floating text-center">
+					{session ? (
+						<div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-white">
+							Welcome back!
+							<div className="mt-4">
+								<SignOut />
+							</div>
+						</div>
+					) : (
+						<div className="bg-white/10 backdrop-blur-lg rounded-lg p-6">
+							<SignIn />
+						</div>
+					)}
+				</div>
+			</div>
+		</main>
 	);
 }
