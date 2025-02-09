@@ -46,7 +46,7 @@ function TabContainer({
     <main className="h-[calc(100dvh-70px)] w-screen relative overflow-hidden">
       <Tabs
         defaultValue="tracks"
-        className="w-full"
+        className="w-full h-full"
         onValueChange={handleTabChange}
       >
         <TabsList className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
@@ -60,11 +60,11 @@ function TabContainer({
           <SceneContainer tracks={tracks} />
         </TabsContent>
 
-        <TabsContent value="community" className="h-full">
+        <TabsContent value="community" className="h-[calc(100dvh-150px)]">
           <ConcertOrganizer />
         </TabsContent>
 
-        <TabsContent value="chat" className="h-full">
+        <TabsContent value="chat" className="h-[calc(100dvh-150px)]">
           <Chat />
         </TabsContent>
       </Tabs>
