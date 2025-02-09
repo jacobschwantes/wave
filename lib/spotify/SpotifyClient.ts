@@ -15,7 +15,7 @@ class SpotifyClient {
 	#accessToken: string = "";
 	#refreshToken: string = "";
 	#expiresAt: number = 0;
-	#SPOTIFY_BASE_URL: string = "https://api.spotify.com/v1/";
+	private readonly SPOTIFY_BASE_URL: string = "https://api.spotify.com/v1/";
 
 	private constructor() {
 		this.#sql = neon(process.env.DATABASE_URL as string);
@@ -98,11 +98,9 @@ class SpotifyClient {
 			}
 
 			const refreshedTokens = await response.json();
-			console.log(refreshedTokens);
 
 			this.#accessToken = refreshedTokens.access_token;
 			this.#expiresAt = Math.floor(Date.now() / 1000) + refreshedTokens.expires_in;
-			console.log(this.#expiresAt);
 			if (refreshedTokens.refresh_token) {
 				this.#refreshToken = refreshedTokens.refresh_token;
 			}
@@ -135,7 +133,7 @@ class SpotifyClient {
 		const queryString =
 			Object.keys(params).length > 0 ? "?" + new URLSearchParams(params) : "";
 
-		const response = await fetch(this.#SPOTIFY_BASE_URL + url + queryString, {
+		const response = await fetch(this.SPOTIFY_BASE_URL + url + queryString, {
 			headers: {
 				Authorization: `Bearer ${await this.getAccessToken()}`,
 			},
@@ -165,6 +163,27 @@ class SpotifyClient {
 			"me/player/recently-played",
 			params
 		);
+		return response;
+	}
+
+	public async getRecentlyPlayedArtists(
+		limit: number = 20,
+		after: string = "",
+		before: string = ""
+	) {
+		const params: Record<string, string> = { limit: limit.toString() };
+		if (after) {
+			params["after"] = after;
+		}
+		if (before) {
+			params["before"] = before;
+		}
+
+		const response = await this.#makeSpotifyAPIRequest(
+			"me/player/recently-played",
+			params
+		);
+
 		return response;
 	}
 }
