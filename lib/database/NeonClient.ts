@@ -338,7 +338,7 @@ class NeonClient {
 		return [...new Set(_genres)];
 	}
 
-	private threshold = 1500;
+	private threshold = 3000;
 	private rippleThreshold = 10000;
 	private calculateCenter(coords: Coordinate[]) {
 		let x = 0;
