@@ -30,8 +30,8 @@ export default function Chat({
 				email: "",
 				image: "",
 			},
-			created_at: new Date().toLocaleTimeString(),
-			updated_at: new Date().toLocaleTimeString(),
+			created_at: new Date().getMilliseconds().toString(),
+			updated_at: new Date().getMilliseconds().toString(),
 		},
 		...chats,
 	]);

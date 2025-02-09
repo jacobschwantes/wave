@@ -339,6 +339,7 @@ class NeonClient {
 	}
 
 	private threshold = 1500;
+	private rippleThreshold = 3500;
 	private calculateCenter(coords: Coordinate[]) {
 		let x = 0;
 		let y = 0;
@@ -457,7 +458,7 @@ class NeonClient {
 			SELECT ripple_id FROM ripple_clusters WHERE cluster_id = ${clusters[i].id}
 			`;
 			for (const ripple of existingRipples) {
-				if (this.distance(clusters[i], ripple as Coordinate) < this.threshold) {
+				if (this.distance(clusters[i], ripple as Coordinate) < this.rippleThreshold) {
 					ripple.clusters.push(clusters[i]);
 					ripple.radius = this.calculateRadius(ripple.clusters);
 					ripple.x = this.calculateCenter(ripple.clusters).x;
