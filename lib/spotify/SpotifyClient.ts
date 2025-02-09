@@ -235,7 +235,9 @@ class SpotifyClient {
 			});
 		});
 
-		return response.artists.flatMap((artist: any) => artist.genres);
+		const genres: string[] = response.artists.flatMap((artist: any) => artist.genres);
+
+		return [...new Set(genres)]
 	}
 
 	public async computeClustersAndIdentifyRipples() {
@@ -248,13 +250,8 @@ class SpotifyClient {
 		const rawGenreData = await this.#getGenresFromArtists(dbArtists);
 		const dbGenres = await this.#neonClient.upsertGenres(rawGenreData);
 		await this.#neonClient.generateRelationships(this.#userRecentSongs);
-
-		// cache in variable: track name, db id of track, artist names for each track, db ids of each artist for each track
-		// get genres from artist ids -> list genres in variable above
-		// console.log("Raw song data", rawSongData);
-		console.log("dbSongs", dbSongs);
-		console.log("dbArtists", dbArtists);
-		console.log("song artist genre structure", this.#userRecentSongs);
+		const clusters = await this.#neonClient.createClusters(dbGenres);
+		await this.#neonClient.createRipples(clusters, this.#userRecentSongs);
 	}
 
 	public async getRecentlyPlayedTracks() {
