@@ -131,7 +131,7 @@ const TrackView = ({ track }: TrackViewProps) => {
                   onMouseLeave={() => setHoveredCommentTime(undefined)}
                 >
                   {track.comments
-                    .sort((a, b) => a.trackTime - b.trackTime)
+                    .sort((a, b) => a.commentTime - b.commentTime)
                     .map((comment, index) => (
                       <div
                         key={comment.id}
