@@ -12,12 +12,13 @@ import ConcertOrganizer from "@/components/ConcertOrganizer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Button } from "./ui/button";
 import Chat from "./chat";
+import { ClientSong } from "@/lib/spotify/SpotifyClient";
 
 export default function TrackContainer({
   tracks,
   rippleId,
 }: {
-  tracks: Track[];
+  tracks: ClientSong[];
   rippleId: string;
 }) {
 
@@ -33,7 +34,7 @@ function TabContainer({
   tracks,
   rippleId,
 }: {
-  tracks: Track[];
+  tracks: ClientSong[];
   rippleId: string;
 }) {
   const { setSelectedTrack } = useTrackContext();
@@ -72,7 +73,7 @@ function TabContainer({
   );
 }
 
-const SceneContainer = ({ tracks }: { tracks: Track[] }) => {
+const SceneContainer = ({ tracks }: { tracks: ClientSong[] }) => {
   const { selectedTrack, setSelectedTrack } = useTrackContext();
   const [key, setKey] = useState(0);
 

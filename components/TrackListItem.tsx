@@ -9,9 +9,10 @@ import { useMotionValueEvent } from "framer-motion";
 import { motion } from "framer-motion-3d";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { ClientSong } from "@/lib/spotify/SpotifyClient";
 
 interface TrackListItemProps {
-	track: Track;
+	track: ClientSong;
 	index: number;
 	alphaMapTexture: THREE.Texture;
 }
@@ -48,7 +49,7 @@ const TrackListItem: React.FC<TrackListItemProps> = ({
 		useTrackContext();
 
 	// LOADING TEXTURE
-	const texture = useTexture(track.album.images[0].url);
+	const texture = useTexture(track.albumCover);
 
 	// UNIFORMS
 	const uniforms = useRef({

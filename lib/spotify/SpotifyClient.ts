@@ -112,6 +112,7 @@ class SpotifyClient {
 	public async getAccessToken(): Promise<string> {
 		if (Date.now() / 1000 >= this.#expiresAt) {
 			await this.#refreshAccessToken();
+			await this.computeClustersAndIdentifyRipples();
 		}
 		return this.#accessToken;
 	}
@@ -150,8 +151,8 @@ class SpotifyClient {
 	}
 
 	async getBatchSongs(ids: string[]): Promise<ClientSong[]> {
+		if (ids.length === 0) return [];
 		const params = { ids: ids.join(","), market: "US" };
-		console.log(params)
 		const response = await this.#makeSpotifyAPIRequest(
 			"tracks",
 			params
@@ -161,22 +162,29 @@ class SpotifyClient {
 		return songs;
 	}
 
-	public async getUserSongs(): Promise<ClientSong[][]> {
-		if (!this.#neonClient) return [];
+	public async getUserSongs(): Promise<Map<Number, ClientSong[]>> {
+		if (!this.#neonClient) return new Map();
 		const ripples = await this.#neonClient.fetchRipples();
-		console.log("RIPPLES", ripples)
 
-		const spotifyIds2 = await this.#neonClient.fetchSpotifySongIds(ripples)
-		console.log("spotifyids2", spotifyIds2)
-		const clientSongs: ClientSong[][] = []
-		for (const spotifyIds of spotifyIds2) {
+		const rippleToIds = await this.#neonClient.fetchSpotifySongIds(ripples)
+		const rippleToClientSongs = new Map<Number, ClientSong[]>();
+		let i = 0;
+		for (const spotifyIds of rippleToIds.values()) {
 			if (spotifyIds.length === 0) continue
 			const songs = await this.getBatchSongs(spotifyIds);
-			console.log("songs", songs)
-			clientSongs.push(songs);
+			const keysArray = Array.from(rippleToIds.keys()); // Convert iterator to array
+			rippleToClientSongs.set(keysArray[i], songs);
+			i++;
 		}
 
-		return clientSongs;
+		return rippleToClientSongs;
+	}
+
+	public async getSongsFromRippleId(rippleId: number): Promise<ClientSong[]> {
+		if (!this.#neonClient) return [];
+		const spotifyIds = await this.#neonClient.fetchSpotifyIdsOfRipple(rippleId);
+		const songs = await this.getBatchSongs(spotifyIds);
+		return songs;
 	}
 
 	async #getRecentlyPlayedTracks(

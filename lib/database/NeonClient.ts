@@ -2,10 +2,11 @@ import { auth } from "@/auth";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import { Session } from "next-auth";
 import { DateTime } from "next-auth/providers/kakao";
-import SpotifyClient, { SongAristsGenres } from "../spotify/SpotifyClient";
+import SpotifyClient, { ClientSong, SongAristsGenres } from "../spotify/SpotifyClient";
 import fs from "fs";
 import path from "path";
 import csv from "fast-csv";
+import { genre_coords } from "./output";
 
 export type SpotifyTokens = {
 	accessToken: string;
@@ -66,7 +67,7 @@ export type Ripple = {
 	x: number;
 	y: number;
 	radius: number;
-	songs: Song[];
+	songs: ClientSong[];
 	clusters: Cluster[];
 	artists: Artist[];
 };
@@ -227,30 +228,7 @@ class NeonClient {
 	}
 
 	private async loadGenreCsv() {
-		const genre_coordinates: GenreCoordinate[] = [];
-
-		// Store CSV in a server-accessible directory (not public/)
-		const filePath = path.join(
-			process.cwd(),
-			"lib",
-			"database",
-			"genre_attrs.csv"
-		);
-
-		return new Promise((resolve, reject) => {
-			fs.createReadStream(filePath)
-				.pipe(csv.parse({ headers: true }))
-				.on("data", (row) => {
-					genre_coordinates.push(row);
-				})
-				.on("end", () => {
-					this.#genreCoordinates = genre_coordinates;
-					resolve(this.#genreCoordinates);
-				})
-				.on("error", (error) => {
-					reject(error);
-				});
-		});
+		this.#genreCoordinates = genre_coords;
 	}
 
 	private binarySearchGenre(target: string): GenreCoordinate | null {
@@ -689,15 +667,15 @@ class NeonClient {
 		return spotifyIds;
 	}
 
-	public async fetchSpotifySongIds(rippleIds: number[]) {
-		const spotifyIds: string[][] = [];
+	public async fetchSpotifySongIds(rippleIds: number[]): Promise<Map<Number, string[]>> {
+		const rippleToIds = new Map<Number, string[]>();
 
 		for (const rippleId of rippleIds) {
 			const _spotifyIds = await this.fetchSpotifyIdsOfRipple(rippleId);
-			spotifyIds.push(_spotifyIds);
+			rippleToIds.set(rippleId, _spotifyIds);
 		}
 
-		return spotifyIds
+		return rippleToIds;
 	}
 }
 

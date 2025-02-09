@@ -15,9 +15,10 @@ import CustomControls from "@/components/CustomControls";
 import TrackListItem from "@/components/TrackListItem";
 import { useTrackContext } from "@/context/track-context";
 import { useFrame } from "@react-three/fiber";
+import { ClientSong } from "@/lib/spotify/SpotifyClient";
 
 interface SceneProps {
-	trackList: Track[];
+	trackList: ClientSong[];
 }
 
 const Scene: React.FC<SceneProps> = ({ trackList }) => {

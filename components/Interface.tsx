@@ -39,8 +39,8 @@ const Interface: React.FC<InterfaceProps> = ({ itemsCount, rippleId }) => {
 						transition={{ ease: "easeOut", duration: 0.5 }}
 						className="absolute top-2 left-8"
 					>
-						<h1 className=" text-2xl font-bold">{selectedTrack?.name}</h1>
-						<p className=" text-sm">{selectedTrack?.artists[0].name}</p>
+						<h1 className=" text-2xl font-bold">{selectedTrack.title}</h1>
+						<p className=" text-sm">{selectedTrack.artist}</p>
 					</motion.div>
 				)}
 			</AnimatePresence>

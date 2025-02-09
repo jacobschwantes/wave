@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import Header from "@/components/ui/header";
 import { Input } from "@/components/ui/input";
+import SpotifyClient from "@/lib/spotify/SpotifyClient";
 import { redirect } from "next/navigation";
 export default async function DashboardLayout({
 	children,

@@ -1,5 +1,6 @@
 import { Ripple } from "@/types/ripple";
 import { RippleSection } from "@/components/ripple-section";
+import SpotifyClient from "@/lib/spotify/SpotifyClient";
 
 export const sampleRipples: Ripple[] = [
 	{
@@ -29,7 +30,10 @@ export const sampleRipples: Ripple[] = [
 ];
 
 export default async function Home() {
-	
+	const spotifyClient = await SpotifyClient.getInstance();	
+	await spotifyClient.computeClustersAndIdentifyRipples();
+	const rippleToSongs = await spotifyClient.getUserSongs();
+
 	return (
 		<div className="flex flex-col gap-16 max-w-4xl mx-auto py-16 px-4">
 			<div className="space-y-4">
@@ -37,7 +41,11 @@ export default async function Home() {
 				<p className="text-muted-foreground">Here are some music communities we think you'll love...</p>
 			</div>
 			
-			<RippleSection
+			<RippleSection 
+				heading="Recently active ripples"
+				rippleToSongs={rippleToSongs}
+				/>
+			{/* <RippleSection
 				heading="Recently active ripples"
 				description="Jump back into the conversation"
 				ripples={sampleRipples}
@@ -46,7 +54,7 @@ export default async function Home() {
 				heading="Ripples you might like" 
 				description="Based on your music taste"
 				ripples={sampleRipples} 
-			/>
+			/> */}
 		</div>
 	);
 }
