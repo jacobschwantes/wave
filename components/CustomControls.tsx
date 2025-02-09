@@ -1,5 +1,6 @@
 "use client";
-import { cameraSpeed, lerp, scrollOffset } from "@/lib/utils";
+import { cameraSpeed, scrollOffset } from "@/lib/animation";
+import { lerp } from "@/lib/utils";
 import { useScroll } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import React, { useRef } from "react";

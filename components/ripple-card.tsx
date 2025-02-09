@@ -16,7 +16,7 @@ export function RippleCard({ ripple }: { ripple: Ripple }) {
 			onHoverEnd={() => setIsHovered(false)}
 			className="flex flex-col gap-1 items-end"
 		>
-			<Link href={`/communities/${ripple.id}`}>
+			<Link href={`/ripple/${ripple.id}`}>
 				<Card className="aspect-video w-full bg-muted py-4 flex flex-col h-full gap-2">
 					<div className="h-16">
 						<AlbumCoverMarquee

@@ -1,27 +1,40 @@
-import TopTracks from "@/components/track-container";
-import SpotifyClient from "@/lib/spotify/SpotifyClient";
+import { Ripple } from "@/types/ripple";
+import { RippleSection } from "@/components/ripple-section";
 
-export default async function Home() {
-  const spotifyClient = await SpotifyClient.getInstance();
-
-  const tracks = await spotifyClient.getRecentlyPlayedTracks(40);
-
-  // Get unique tracks by filtering out duplicates based on track ID
-  const uniqueTracks = tracks.items.reduce((acc: any[], item: any) => {
-    if (
-      !acc.find((existingItem: any) => existingItem.track.id === item.track.id)
-    ) {
-      acc.push(item);
-    }
-    return acc;
-  }, []);
-
-  const tracksArray = uniqueTracks.map((item: any) => item.track);
-  console.log(tracksArray.length);
-
-  return (
-    <div>
-      <TopTracks tracks={tracksArray} />
-    </div>
-  );
+export const sampleRipples: Ripple[] = [
+	{
+		id: "1",
+		name: "Frank Ocean, Dijon, Daniel Caesar",
+		memberCount: 10,
+		location: "Minneapolis, MN",
+		lastActivity: "2025-02-01",
+		albumCovers: ["/album.png", "/album2.png"],
+	},
+	{
+		id: "2",
+		name: "Frank Ocean, SZA, Jorja Smith",
+		memberCount: 20,
+		location: "Los Angeles, CA",
+		lastActivity: "2025-02-07",
+		albumCovers: ["/album.png", "/album2.png"],
+	},
+	// {
+	// 	id: "3",
+	// 	name: "Frank Ocean, SZA, Jorja Smith",
+	// 	memberCount: 30,
+	// 	location: "Chicago, IL",
+	// 	lastActivity: "2025-02-08",
+	// 	albumCovers: ["/album.png", "/album2.png"],
+	// },
+];
+export default function Home() {
+	return (
+		<div className="flex flex-col gap-16 max-w-4xl mx-auto py-16">
+			<RippleSection
+				heading="Recently active ripples"
+				ripples={sampleRipples}
+			/>
+			<RippleSection heading="Ripples you might like" ripples={sampleRipples} />
+		</div>
+	);
 }

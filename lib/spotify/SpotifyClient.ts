@@ -1,38 +1,44 @@
-import { auth } from "@/auth";
-import { neon, NeonQueryFunction } from "@neondatabase/serverless";
-import { Session } from "next-auth";
+import NeonClient, { Artist, Song } from "../database/NeonClient";
 
-type SpotifyTokens = {
-	accessToken: string;
-	refreshToken: string;
-	expiresAt: number;
+export type SongAristsGenres = {
+	id: number;
+	spotify_id: string;
+	artists: {
+		id: number;
+		spotify_id: string;
+		genres: {
+			name: string;
+			id: number;
+			x: number;
+			y: number;
+		}[];
+	}[];
 };
 
 class SpotifyClient {
 	private static instance: SpotifyClient | null = null;
-	#sql: NeonQueryFunction<false, false> | null = null;
-	#session: Session | null = null;
+	#neonClient: NeonClient | null = null;
 	#accessToken: string = "";
 	#refreshToken: string = "";
 	#expiresAt: number = 0;
+	#userRecentSongs: SongAristsGenres[] = [];
 	private readonly SPOTIFY_BASE_URL: string = "https://api.spotify.com/v1/";
 
-	private constructor() {
-		this.#sql = neon(process.env.DATABASE_URL as string);
-	}
+	private constructor() {}
 
 	public static async getInstance(): Promise<SpotifyClient> {
 		if (!SpotifyClient.instance) {
 			SpotifyClient.instance = new SpotifyClient();
+			await SpotifyClient.instance.initialize();
 		}
-		await SpotifyClient.instance.initialize();
+
 		return SpotifyClient.instance;
 	}
 
 	private async initialize(): Promise<void> {
 		try {
-			this.#session = await auth();
-			const tokens = await this.#fetchSpotifyTokens();
+			this.#neonClient = await NeonClient.getInstance();
+			const tokens = await this.#neonClient.fetchSpotifyTokens();
 
 			if (tokens) {
 				const { accessToken, refreshToken, expiresAt } = tokens;
@@ -45,32 +51,8 @@ class SpotifyClient {
 		}
 	}
 
-	async #fetchSpotifyTokens(): Promise<SpotifyTokens | null> {
-		if (!this.#sql || !this.#session) return null;
-
-		const userId = this.#session.user?.id;
-		if (!userId) return null;
-
-		try {
-			const result = await this.#sql(
-				`SELECT access_token as "accessToken", refresh_token as "refreshToken", expires_at as "expiresAt" FROM accounts WHERE "userId" = ${userId}`
-			);
-
-			const spotifyTokens = {
-				accessToken: result[0].accessToken,
-				refreshToken: result[0].refreshToken,
-				expiresAt: Number(result[0].expiresAt),
-			};
-
-			return result.length > 0 ? (spotifyTokens as SpotifyTokens) : null;
-		} catch (error) {
-			console.error("Error fetching Spotify tokens:", error);
-			return null;
-		}
-	}
-
 	async #refreshAccessToken(): Promise<void> {
-		if (!this.#refreshToken) {
+		if (!this.#refreshToken || !this.#neonClient) {
 			console.log("No refresh token available");
 			return;
 		}
@@ -100,20 +82,17 @@ class SpotifyClient {
 			const refreshedTokens = await response.json();
 
 			this.#accessToken = refreshedTokens.access_token;
-			this.#expiresAt = Math.floor(Date.now() / 1000) + refreshedTokens.expires_in;
+			this.#expiresAt =
+				Math.floor(Date.now() / 1000) + refreshedTokens.expires_in;
 			if (refreshedTokens.refresh_token) {
 				this.#refreshToken = refreshedTokens.refresh_token;
 			}
 
-			if (this.#sql && this.#session?.user?.id) {
-				await this.#sql`
-                UPDATE accounts 
-                SET access_token = ${this.#accessToken},
-                    refresh_token = ${this.#refreshToken},
-                    expires_at = ${this.#expiresAt}
-                WHERE "userId" = ${this.#session.user.id}
-                `;
-			}
+			this.#neonClient.updateSpotifyTokens(
+				this.#accessToken,
+				this.#refreshToken,
+				this.#expiresAt
+			);
 		} catch (error) {
 			throw error;
 		}
@@ -146,7 +125,7 @@ class SpotifyClient {
 		return await response.json();
 	}
 
-	public async getRecentlyPlayedTracks(
+	async #getRecentlyPlayedTracks(
 		limit: number = 20,
 		after: string = "",
 		before: string = ""
@@ -163,28 +142,119 @@ class SpotifyClient {
 			"me/player/recently-played",
 			params
 		);
-		return response;
+
+		response.items.forEach((song: any) => {
+			const songArtistsGenres: SongAristsGenres = {
+				id: -1,
+				spotify_id: song.track.id,
+				artists: song.track.artists.map((artist: any) => ({
+					id: -1, // Default id, can be updated later
+					spotify_id: artist.id,
+					genres: [], // Empty array for genres, to be populated later
+				})),
+			};
+			this.#userRecentSongs.push(songArtistsGenres); // Add to #userRecentSongs
+		});
+
+		return response.items;
 	}
 
-	public async getRecentlyPlayedArtists(
-		limit: number = 20,
-		after: string = "",
-		before: string = ""
-	) {
-		const params: Record<string, string> = { limit: limit.toString() };
-		if (after) {
-			params["after"] = after;
-		}
-		if (before) {
-			params["before"] = before;
-		}
+	public appendDbIdToSongObj(id: number, spotify_id: string) {
+		this.#userRecentSongs = this.#userRecentSongs.map((song) => {
+			if (song.spotify_id === spotify_id) {
+				song.id = id;
+			}
+			return song;
+		});
+	}
 
-		const response = await this.#makeSpotifyAPIRequest(
-			"me/player/recently-played",
-			params
+	public appendDbIdToArtistObj(id: number, spotify_id: string) {
+		this.#userRecentSongs = this.#userRecentSongs.map((song) => {
+			song.artists = song.artists.map((artist) => {
+				if (artist.spotify_id === spotify_id) {
+					return { ...artist, id }; // Create a new object with the updated id
+				} else {
+					return artist;
+				}
+			});
+			return { ...song }; // Create a new object for the song
+		});
+	}
+
+	public appendDbIdToGenreObj(id: number, x: number, y: number, name: string) {
+		this.#userRecentSongs = this.#userRecentSongs.map((song) => {
+			song.artists = song.artists.map((artist) => {
+				artist.genres = artist.genres.map((genre) => {
+					if (genre.name === name) {
+						return { ...genre, id: id, x: x, y: y };
+					}
+					return genre
+				})
+				return { ...artist };
+			});
+			return { ...song };
+		});
+	}
+
+	#getArtistsFromSongs(rawSongData: any[]): Artist[] {
+		const artistsToUpsert = new Map();
+
+		rawSongData.forEach((item: any) => {
+			item.track.artists.forEach((artist: any) => {
+				if (!artistsToUpsert.has(artist.id)) {
+					artistsToUpsert.set(artist.id, {
+						spotify_id: artist.id,
+						name: artist.name,
+					});
+				}
+			});
+		});
+
+		const artists: Artist[] = [...artistsToUpsert.values()];
+
+		return artists;
+	}
+
+	async #getGenresFromArtists(artists: Artist[]) {
+		const ids = artists.map((artist) => artist.spotify_id);
+		const params = { ids: ids.join(",") };
+
+		const response = await this.#makeSpotifyAPIRequest("artists", params);
+
+		response.artists.forEach((artist: any) => {
+			this.#userRecentSongs = this.#userRecentSongs.map((song) => {
+				song.artists = song.artists.map((_artist) => {
+					if (_artist.spotify_id === artist.id) {
+						const genres = artist.genres.map((genre: any) => {return { "name": genre, "id": -1, "x": -1, "y": -1 }})
+						return { ..._artist, genres: genres }; // Create a new object with the updated id
+					} else {
+						return _artist;
+					}
+				});
+				return { ...song };
+			});
+		});
+
+		return response.artists.flatMap((artist: any) => artist.genres);
+	}
+
+	public async computeClustersAndIdentifyRipples() {
+		if (!this.#neonClient) return;
+		const rawSongData = await this.#getRecentlyPlayedTracks(50);
+		const dbSongs: Song[] = await this.#neonClient.upsertSongs(rawSongData);
+		const dbArtists = await this.#neonClient.upsertArtists(
+			this.#getArtistsFromSongs(rawSongData)
 		);
+		const rawGenreData = await this.#getGenresFromArtists(dbArtists);
+		const dbGenres = await this.#neonClient.upsertGenres(rawGenreData);
+		await this.#neonClient.generateRelationships(this.#userRecentSongs);
 
-		return response;
+		// cache in variable: track name, db id of track, artist names for each track, db ids of each artist for each track
+		// get genres from artist ids -> list genres in variable above
+		// console.log("Raw song data", rawSongData);
+		console.log("dbSongs", dbSongs);
+		console.log("dbArtists", dbArtists);
+		console.log("song artist genre structure", this.#userRecentSongs);
 	}
 }
 
