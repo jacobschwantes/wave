@@ -59,6 +59,7 @@ export default {
 			animation: {
 				marquee: "marquee 40s linear infinite",
 				marquee2: "marquee2 40s linear infinite",
+				'slide-fade': 'slide-fade 0.8s ease-out forwards'
 			},
 			keyframes: {
 				marquee: {
@@ -69,6 +70,16 @@ export default {
 					"0%": { transform: "translateX(100%)" },
 					"100%": { transform: "translateX(0%)" },
 				},
+				'slide-fade': {
+					'0%': { 
+						opacity: '0',
+						transform: 'translateX(32px)'
+					},
+					'100%': { 
+						opacity: '1',
+						transform: 'translateX(0)'
+					},
+				}
 			},
 		},
 	},

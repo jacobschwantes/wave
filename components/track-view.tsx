@@ -1,3 +1,6 @@
+import Comment from './comment';
+import Image from 'next/image';
+
 interface Track {
   id: string;
   title: string;
@@ -28,46 +31,42 @@ const TrackView = ({ track }: TrackViewProps) => {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-6 p-4">
-      {/* left col - track info */}
-      <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-8 p-6 max-w-7xl mx-auto">
+      <div className="space-y-6 opacity-0 translate-y-4 animate-slide-fade">
         {track.albumArt ? (
-          <img
+          <Image
             src={track.albumArt}
             alt={`${track.title} cover`}
-            className="w-full aspect-square rounded-lg shadow-md"
+            className="w-full aspect-square rounded-lg"
+            width={500}
+            height={500}
           />
         ) : (
-          <div className="w-full aspect-square bg-neutral-200 rounded-lg" />
+          <div className="w-full aspect-square rounded-lg bg-neutral-100 flex items-center justify-center">
+            <p className="text-neutral-400 text-sm">no art available</p>
+          </div>
         )}
-        <div>
+        <div className="space-y-2">
           <h2 className="text-2xl font-bold">{track.title}</h2>
           <p className="text-lg text-neutral-600">{track.artist}</p>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-neutral-500">
             {formatDuration(track.duration)}
           </p>
         </div>
       </div>
 
-      {/* right col - comments */}
-      <div className="space-y-4">
+      <div className="space-y-6 opacity-0 translate-y-4 animate-slide-fade" style={{ animationDelay: '150ms' }}>
         <h3 className="text-lg font-semibold">Comments</h3>
         <div className="space-y-3">
-          {track.comments.map((comment) => (
+          {track.comments.map((comment, index) => (
             <div
               key={comment.id}
-              className="p-3 bg-neutral-50 rounded-lg border border-neutral-200"
+              className="opacity-0 translate-x-8 animate-slide-fade"
+              style={{ 
+                animationDelay: `${(index + 2) * 150}ms`,
+              }}
             >
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-medium">{comment.author}</span>
-                <span className="text-sm text-neutral-500">
-                  {new Date(comment.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="text-neutral-700">{comment.content}</p>
-              <div className="mt-2 text-sm text-neutral-500">
-                {comment.likes} likes
-              </div>
+              <Comment comment={comment} />
             </div>
           ))}
         </div>
