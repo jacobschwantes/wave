@@ -31,7 +31,7 @@ export const sampleRipples: Ripple[] = [
 
 export default async function Home() {
 	const spotifyClient = await SpotifyClient.getInstance();	
-	await spotifyClient.computeClustersAndIdentifyRipples();
+	// await spotifyClient.computeClustersAndIdentifyRipples();
 	const rippleToSongs = await spotifyClient.getUserSongs();
 
 	return (
