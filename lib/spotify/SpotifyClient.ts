@@ -63,11 +63,6 @@ class SpotifyClient {
 	}
 
 	async #refreshAccessToken(): Promise<void> {
-		if (!this.#refreshToken || !this.#neonClient) {
-			console.log("No refresh token available");
-			return;
-		}
-
 		try {
 			const url = "https://accounts.spotify.com/api/token";
 

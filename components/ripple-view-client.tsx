@@ -5,28 +5,26 @@ import { TrackProvider, useTrackContext } from "@/context/track-context";
 import { Track } from "@/types/track";
 import { ScrollControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import TrackView from "./track-view";
 import { AnimatePresence, motion } from "framer-motion";
 import ConcertOrganizer from "@/components/ConcertOrganizer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Button } from "./ui/button";
 import Chat from "./chat";
 import { ClientSong } from "@/lib/spotify/SpotifyClient";
 
-export default function TrackContainer({
+export default function RippleViewClient({
   tracks,
   rippleId,
 }: {
   tracks: ClientSong[];
   rippleId: string;
 }) {
-
-	return (
-		<TrackProvider>
-          <TabContainer tracks={tracks} rippleId={rippleId} />
-		</TrackProvider>
-	);
+  return (
+    <TrackProvider>
+      <TabContainer tracks={tracks} rippleId={rippleId} />
+    </TrackProvider>
+  );
 }
 
 // new component to use context safely

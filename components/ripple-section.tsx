@@ -2,6 +2,7 @@ import { ClientSong } from "@/lib/spotify/SpotifyClient";
 import { RippleCard } from "./ripple-card";
 import { Ripple } from "@/types/ripple";
 import { AudioWaveform } from "lucide-react";
+import Image from "next/image";
 
 export function RippleSection({
 	heading,

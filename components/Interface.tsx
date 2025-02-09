@@ -1,7 +1,6 @@
 import Image from "next/image";
 import HoveredTrack from "@/components/HoveredTrack";
 import Indicators from "@/components/Indicators";
-import { sampleRipples } from "@/app/(dashboard)/home/page";
 import { useTrackContext } from "@/context/track-context";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -11,7 +10,6 @@ interface InterfaceProps {
 }
 
 const Interface: React.FC<InterfaceProps> = ({ itemsCount, rippleId }) => {
-	const ripple = sampleRipples.find((r) => r.id === rippleId);
 	const { selectedTrack } = useTrackContext();
 	return (
 		<>
@@ -19,16 +17,15 @@ const Interface: React.FC<InterfaceProps> = ({ itemsCount, rippleId }) => {
 			<AnimatePresence mode="wait">
 				{!selectedTrack ? (
 					<motion.div
-						key={ripple?.id}
+						key={rippleId}
 						initial={{ opacity: 0, y: 5 }}
 						animate={{ opacity: 1, y: 0 }}
 						exit={{ opacity: 0, y: -5 }}
 						transition={{ ease: "easeOut", duration: 0.5 }}
 						className="absolute top-2 left-8"
 					>
-						<h1 className=" text-2xl font-bold">{ripple?.name}</h1>
-						<p className=" text-sm">{ripple?.location}</p>
-						<p className=" text-sm">{ripple?.memberCount} members</p>
+						<h1 className=" text-2xl font-bold">{rippleId}</h1>
+						<p className=" text-sm">{rippleId}</p>
 					</motion.div>
 				) : (
 					<motion.div
