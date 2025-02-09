@@ -486,34 +486,49 @@ class NeonClient {
           break;
         }
       }
-      // if (rippled.includes(i)) continue;
+      if (rippled.includes(i)) continue;
 
-      // if (rippled.includes(i)) continue;
-      // let createdRipple: Ripple|null = null;
-      // for (let j = i + 1; j < clusters.length; j++) {
-      //     if (createdRipple) {
-      //         if (this.distance(clusters[j] as Coordinate, createdRipple as Coordinate) + createdRipple.radius < this.threshold) {
-      //             createdRipple.clusters.push(clusters[j])
-      //             // rippled.push(j)
-      //         }
-      //     } else if (this.distance(clusters[i], clusters[j]) < this.threshold) {
-      //         // this new cluster needs to be an object in the db
-      //         // rippled.push(j)
-      //         createdRipple = { id: -1, x: -1, y: -1, radius: -1, clusters: [clusters[i], clusters[j]], songs: [], artists: [] }
-      //     }
-      // }
-      // if (!createdRipple) {
-      // add the cluster to the user
-      let createdRipple = {
-        id: -1,
-        x: -1,
-        y: -1,
-        radius: -1,
-        clusters: [clusters[i]],
-        songs: [],
-        artists: [],
-      };
-      // }
+      if (rippled.includes(i)) continue;
+      let createdRipple: Ripple | null = null;
+      for (let j = i + 1; j < clusters.length; j++) {
+        if (createdRipple) {
+          if (
+            this.distance(
+              clusters[j] as Coordinate,
+              createdRipple as Coordinate,
+            ) +
+              createdRipple.radius <
+            this.threshold
+          ) {
+            createdRipple.clusters.push(clusters[j]);
+            // rippled.push(j)
+          }
+        } else if (this.distance(clusters[i], clusters[j]) < this.threshold) {
+          // this new cluster needs to be an object in the db
+          // rippled.push(j)
+          createdRipple = {
+            id: -1,
+            x: -1,
+            y: -1,
+            radius: -1,
+            clusters: [clusters[i], clusters[j]],
+            songs: [],
+            artists: [],
+          };
+        }
+      }
+      if (!createdRipple) {
+        // add the cluster to the user
+        createdRipple = {
+          id: -1,
+          x: -1,
+          y: -1,
+          radius: -1,
+          clusters: [clusters[i]],
+          songs: [],
+          artists: [],
+        };
+      }
       const { x, y } = this.calculateCenter(createdRipple.clusters);
       const radius = this.calculateRadius(createdRipple.clusters);
       createdRipple.x = x;
