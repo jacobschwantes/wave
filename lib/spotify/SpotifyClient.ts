@@ -64,6 +64,7 @@ class SpotifyClient {
 
 	async #refreshAccessToken(): Promise<void> {
 		try {
+			if (!this.#neonClient) return;
 			const url = "https://accounts.spotify.com/api/token";
 
 			const payload = {

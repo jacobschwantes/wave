@@ -39,7 +39,7 @@ export function RippleCard({
       <Link
         className="w-full aspect-video"
         href={{
-          pathname: `/ripple/${rippleId}`,
+          pathname: `/ripple/${rippleId}`
         }}
       >
         <Card className="h-full w-full overflow-hidden py-4 flex flex-col gap-2 bg-gradient-to-br from-gray-100 to-gray-200">

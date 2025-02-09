@@ -517,7 +517,7 @@ class NeonClient {
 			createdRipple.x = x;
 			createdRipple.y = y;
 			createdRipple.radius = radius;
-			ripples.push(createdRipple);
+			ripples.push(JSON.parse(JSON.stringify(createdRipple)));
 		}
 
 		for (let i = 0; i < ripples.length; i++) {

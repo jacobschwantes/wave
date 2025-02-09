@@ -5,17 +5,13 @@ import { auth } from "@/auth";
 
 export default async function CommunityPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: { songs?: string };
 }) {
   const { id } = await params;
   const spotify = await SpotifyClient.getInstance();
   const neon = await NeonClient.getInstance()
-  const songs = searchParams.songs 
-    ? JSON.parse(searchParams.songs) 
-    : await spotify.getSongsFromRippleId(Number(id));
+  const songs =  await spotify.getSongsFromRippleId(Number(id));
   const chats = await neon.getCommentsForRipple(Number(id));
 	const session = await auth()
   let userId = 0 
