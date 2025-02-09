@@ -17,7 +17,7 @@ export function RippleCard({ ripple }: { ripple: Ripple }) {
 			className="flex flex-col gap-1 items-end"
 		>
 			<Link href={`/ripple/${ripple.id}`}>
-				<Card className="aspect-video w-full bg-muted py-4 flex flex-col h-full gap-2">
+				<Card className="aspect-video w-full overflow-hidden py-4 flex flex-col h-full gap-2 bg-gradient-to-br from-gray-100 to-gray-200">
 					<div className="h-16">
 						<AlbumCoverMarquee
 							covers={ripple.albumCovers}

@@ -29,12 +29,22 @@ export const sampleRipples: Ripple[] = [
 ];
 export default function Home() {
 	return (
-		<div className="flex flex-col gap-16 max-w-4xl mx-auto py-16">
+		<div className="flex flex-col gap-16 max-w-4xl mx-auto py-16 px-4">
+			<div className="space-y-4">
+				<h1 className="text-2xl font-medium">Welcome back! 👋</h1>
+				<p className="text-muted-foreground">Here are some music communities we think you'll love...</p>
+			</div>
+			
 			<RippleSection
 				heading="Recently active ripples"
+				description="Jump back into the conversation"
 				ripples={sampleRipples}
 			/>
-			<RippleSection heading="Ripples you might like" ripples={sampleRipples} />
+			<RippleSection 
+				heading="Ripples you might like" 
+				description="Based on your music taste"
+				ripples={sampleRipples} 
+			/>
 		</div>
 	);
 }
