@@ -1,7 +1,7 @@
 ## Overview
 
-Wave is a social platform that allows you to discover new music by sharing "ripples"
-with like-minded listeners. Connect your Spotify account and start exploring music
+Wave is a social platform that allows you to discover communities by interacting with "ripples"
+made up of like-minded listeners. Connect your Spotify account and start exploring music
 in a new way.
 
 <p align="center">
