@@ -5,7 +5,7 @@ export default async function Home() {
 
     // const token = await spotifyClient.getAccessToken();
 
-    // await spotifyClient.computeClustersAndIdentifyRipples();
+    await spotifyClient.computeClustersAndIdentifyRipples();
 
 	return (
 		<main className="wave-bg min-h-screen relative">

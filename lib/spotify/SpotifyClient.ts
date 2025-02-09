@@ -9,6 +9,8 @@ export type SongAristsGenres = {
 		genres: {
 			name: string;
 			id: number;
+			x: number;
+			y: number;
 		}[];
 	}[];
 };
@@ -179,12 +181,12 @@ class SpotifyClient {
 		});
 	}
 
-	public appendDbIdToGenreObj(id: number, name: string) {
+	public appendDbIdToGenreObj(id: number, x: number, y: number, name: string) {
 		this.#userRecentSongs = this.#userRecentSongs.map((song) => {
 			song.artists = song.artists.map((artist) => {
 				artist.genres = artist.genres.map((genre) => {
 					if (genre.name === name) {
-						return { ...genre, id: id };
+						return { ...genre, id: id, x: x, y: y };
 					}
 					return genre
 				})
@@ -223,10 +225,10 @@ class SpotifyClient {
 			this.#userRecentSongs = this.#userRecentSongs.map((song) => {
 				song.artists = song.artists.map((_artist) => {
 					if (_artist.spotify_id === artist.id) {
-						const genres = artist.genres.map((genre: any) => {return { "name": genre, "id": -1 }})
-						return { ...artist, genres: genres }; // Create a new object with the updated id
+						const genres = artist.genres.map((genre: any) => {return { "name": genre, "id": -1, "x": -1, "y": -1 }})
+						return { ..._artist, genres: genres }; // Create a new object with the updated id
 					} else {
-						return artist;
+						return _artist;
 					}
 				});
 				return { ...song };
@@ -245,7 +247,7 @@ class SpotifyClient {
 		);
 		const rawGenreData = await this.#getGenresFromArtists(dbArtists);
 		const dbGenres = await this.#neonClient.upsertGenres(rawGenreData);
-
+		await this.#neonClient.generateRelationships(this.#userRecentSongs);
 
 		// cache in variable: track name, db id of track, artist names for each track, db ids of each artist for each track
 		// get genres from artist ids -> list genres in variable above
