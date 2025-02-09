@@ -13,7 +13,9 @@ export function SignIn() {
 				<form
 					action={async () => {
 						"use server";
-						await signIn("spotify");
+						await signIn("spotify", {
+							redirectTo: "/home",
+						});
 					}}
 				>
 					<button

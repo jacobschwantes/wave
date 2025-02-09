@@ -47,7 +47,7 @@ const Scene: React.FC<SceneProps> = ({ trackList }) => {
 				(track) => track.id === selectedTrack.id
 			);
 			cameraRef.current.position.lerp(
-				new THREE.Vector3(1.5, 0, (trackIndex * 0.5) + 4),
+				new THREE.Vector3(1, 0.3, (trackIndex * 0.5) + 4),
 				0.1
 			);
 			cameraRef.current.rotation.x = THREE.MathUtils.lerp(
@@ -96,7 +96,6 @@ const Scene: React.FC<SceneProps> = ({ trackList }) => {
 			/>
 
 			<group>
-				{/* TRACKS */}
 				{trackList.map((track, index) => {
 					return (
 						<TrackListItem
