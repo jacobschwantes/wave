@@ -8,6 +8,7 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useState } from "react";
 import TrackView from "./track-view";
 import { AnimatePresence, motion } from "motion/react";
+import { Button } from "./ui/button";
 
 export default function TrackContainer({
 	tracks,
@@ -16,21 +17,33 @@ export default function TrackContainer({
 	tracks: Track[];
 	rippleId: string;
 }) {
+	const [selectedTab, setSelectedTab] = useState<string>("tracks");
+
 	return (
 		<TrackProvider>
 			<main className="h-[calc(100dvh-70px)] w-screen relative overflow-hidden">
-				<Interface itemsCount={tracks.length} rippleId={rippleId} />
-				<SceneContainer tracks={tracks} />
+				{selectedTab === "tracks" && (
+					<>
+						<Interface itemsCount={tracks.length} rippleId={rippleId} />
+						<SceneContainer tracks={tracks} />
+					</>
+				)}
+
+				{selectedTab === "community" && <>community</>}
+
+				{selectedTab === "chat" && <>chat</>}
+
+				<div className="absolute bottom-0 left-0 z-50 flex gap-2">
+					<Button onClick={() => setSelectedTab("tracks")}>tracks</Button>
+					<Button onClick={() => setSelectedTab("community")}>community</Button>
+					<Button onClick={() => setSelectedTab("chat")}>chat</Button>
+				</div>
 			</main>
 		</TrackProvider>
 	);
 }
 
-const SceneContainer = ({
-	tracks,
-}: {
-	tracks: Track[];
-}) => {
+const SceneContainer = ({ tracks }: { tracks: Track[] }) => {
 	const { selectedTrack, setSelectedTrack } = useTrackContext();
 	const [key, setKey] = useState(0);
 
