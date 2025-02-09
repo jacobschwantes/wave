@@ -16,9 +16,11 @@ interface Message {
 export default function Chat({
 	chats,
 	rippleId,
+	userId
 }: {
 	chats: Comment[];
 	rippleId: number;
+	userId: number;
 }) {
 	const [messages, setMessages] = useState<Comment[]>([
 		{
@@ -52,7 +54,7 @@ export default function Chat({
 					<Card
 						key={message.id}
 						className={`p-3 ${
-							message.user.image.length !== 0
+							message.user.image.length !== 0 || message.user.id !== userId
 								? "ml-auto bg-blue-500 text-white"
 								: "mr-auto"
 						} max-w-[80%]`}

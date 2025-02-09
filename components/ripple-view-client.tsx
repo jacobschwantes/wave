@@ -17,7 +17,9 @@ export default function RippleViewClient({
   tracks,
   rippleId,
   chats,
+  userId
 }: {
+  userId: number;
   tracks: ClientSong[];
   rippleId: string;
   chats: Comment[];
@@ -25,7 +27,7 @@ export default function RippleViewClient({
 
 	return (
 		<TrackProvider>
-          <TabContainer tracks={tracks} rippleId={rippleId} chats={chats} />
+          <TabContainer userId={userId} tracks={tracks} rippleId={rippleId} chats={chats} />
 		</TrackProvider>
 	);
 }
@@ -35,10 +37,12 @@ function TabContainer({
   tracks,
   rippleId,
   chats,
+  userId
 }: {
   tracks: ClientSong[];
   rippleId: string;
   chats: Comment[];
+  userId: number;
 }) {
   const { setSelectedTrack } = useTrackContext();
 
@@ -69,7 +73,7 @@ function TabContainer({
         </TabsContent>
 
         <TabsContent value="chat" className="h-[calc(100dvh-150px)]">
-          <Chat chats={chats} rippleId={Number(rippleId)} />
+          <Chat userId={userId} chats={chats} rippleId={Number(rippleId)} />
         </TabsContent>
       </Tabs>
     </main>
