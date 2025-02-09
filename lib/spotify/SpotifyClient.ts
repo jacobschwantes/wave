@@ -7,8 +7,8 @@ export type SongAristsGenres = {
 		id: number;
 		spotify_id: string;
 		genres: {
+			name: string;
 			id: number;
-			spotify_id: string;
 		}[];
 	}[];
 };
@@ -179,6 +179,21 @@ class SpotifyClient {
 		});
 	}
 
+	public appendDbIdToGenreObj(id: number, name: string) {
+		this.#userRecentSongs = this.#userRecentSongs.map((song) => {
+			song.artists = song.artists.map((artist) => {
+				artist.genres = artist.genres.map((genre) => {
+					if (genre.name === name) {
+						return { ...genre, id: id };
+					}
+					return genre
+				})
+				return { ...artist };
+			});
+			return { ...song };
+		});
+	}
+
 	#getArtistsFromSongs(rawSongData: any[]): Artist[] {
 		const artistsToUpsert = new Map();
 
@@ -199,7 +214,26 @@ class SpotifyClient {
 	}
 
 	async #getGenresFromArtists(artists: Artist[]) {
+		const ids = artists.map((artist) => artist.spotify_id);
+		const params = { ids: ids.join(",") };
 
+		const response = await this.#makeSpotifyAPIRequest("artists", params);
+
+		response.artists.forEach((artist: any) => {
+			this.#userRecentSongs = this.#userRecentSongs.map((song) => {
+				song.artists = song.artists.map((_artist) => {
+					if (_artist.spotify_id === artist.id) {
+						const genres = artist.genres.map((genre: any) => {return { "name": genre, "id": -1 }})
+						return { ...artist, genres: genres }; // Create a new object with the updated id
+					} else {
+						return artist;
+					}
+				});
+				return { ...song };
+			});
+		});
+
+		return response.artists.flatMap((artist: any) => artist.genres);
 	}
 
 	public async computeClustersAndIdentifyRipples() {
@@ -210,6 +244,9 @@ class SpotifyClient {
 			this.#getArtistsFromSongs(rawSongData)
 		);
 		const rawGenreData = await this.#getGenresFromArtists(dbArtists);
+		const dbGenres = await this.#neonClient.upsertGenres(rawGenreData);
+
+
 		// cache in variable: track name, db id of track, artist names for each track, db ids of each artist for each track
 		// get genres from artist ids -> list genres in variable above
 		// console.log("Raw song data", rawSongData);

@@ -197,6 +197,43 @@ class NeonClient {
     
         return artists;
     }
+
+    private getGenreCoordinate(genre: string) {
+        return { x: 0, y: 0}
+    }
+
+    public async upsertGenres(genres: string[]): Promise<Genre[]> {
+        const _genres: Genre[] = [];
+        if (this.#sql) {
+            for (const genre of genres) {
+                try {
+                    if (!this.#sql) return [];
+                    const { x, y } = this.getGenreCoordinate(genre);
+                    const response = await this.#sql`
+                        INSERT INTO genres (name, x, y)
+                        VALUES (${genre}, ${x}, ${y})
+                        ON CONFLICT (spotify_id) 
+                        DO UPDATE SET 
+                            name = EXCLUDED.name,
+                            updated_at = NOW()
+                        RETURNING id, spotify_id, name, created_at, updated_at;
+                    `;
+    
+                    if (this.#spotifyClient) {
+                        console.log("CLIENT IS REAL")
+                        // this.#spotifyClient.appendDbIdToArtistObj(response[0].id, artist.spotify_id);
+                    }
+                    
+                    _genres.push(response[0] as Genre);
+                } catch (error) {
+                    console.error(`Error upserting artist ${genre}:`, error);
+                }
+            }
+        }
+    
+        return _genres;
+        
+    }
     
 }
 
