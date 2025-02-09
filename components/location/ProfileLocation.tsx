@@ -44,7 +44,6 @@ export default function ProfileLocation({ userId }: { userId: string }) {
 
   // load initial location
   useEffect(() => {
-    console.log("loading location");
     async function loadLocation() {
       if (!userId) return;
       const location = await getProfileLocation(userId);
@@ -82,13 +81,13 @@ export default function ProfileLocation({ userId }: { userId: string }) {
   return (
     <div className="flex items-center gap-2">
       <Dialog open={open} onOpenChange={setOpen}>
-        <div className="flex items-center gap-2">
-          <DialogTrigger asChild>
-            <Button variant="outline">Update Location</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-4">
           {locationName && (
             <span className="text-sm text-neutral-600">{locationName}</span>
           )}
+          <DialogTrigger asChild>
+            <Button variant="outline">Update</Button>
+          </DialogTrigger>
         </div>
 
         <DialogContent>

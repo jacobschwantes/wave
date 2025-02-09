@@ -7,18 +7,29 @@ export default async function ProfilePage() {
   if (!session?.user?.id) return null;
 
   return (
-    <div className="container max-w-4xl py-8">
-      <h1 className="text-2xl font-bold mb-8">Profile Settings</h1>
+    <div className="mx-auto max-w-4xl py-8">
+      <h1 className="text-2xl font-bold mb-8">Profile</h1>
 
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Location</h2>
+      <div className="grid gap-8">
+        <h2 className="text-lg font-semibold">Account</h2>
+        <div className="rounded-lg px-4 pb-4">
+          <div className="flex flex-col gap-2 pb-4">
+            <p className="text-sm text-muted-foreground">Username</p>
+            <p className="font-medium">{session.user.name}</p>
+          </div>
+          <div className="flex flex-col gap-2 pb-4">
+            <p className="text-sm text-muted-foreground">Email</p>
+            <p className="font-medium">{session.user.email}</p>
+          </div>
+        </div>
+
+        <h2 className="text-lg font-semibold">Location</h2>
+        <div className="rounded-lg px-4 pb-4">
           <ProfileLocation userId={session.user.id} />
         </div>
-      </div>
 
-      <div className="space-y-6">
-        <div>
+        <h2 className="text-lg font-semibold">Account Actions</h2>
+        <div className="px-4 pb-4">
           <SignOut />
         </div>
       </div>
