@@ -2,10 +2,9 @@
 import Interface from "@/components/Interface";
 import Scene from "@/components/Scene";
 import { TrackProvider, useTrackContext } from "@/context/track-context";
-import { Track } from "@/types/track";
 import { ScrollControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import TrackView from "./track-view";
 import { AnimatePresence, motion } from "framer-motion";
 import ConcertOrganizer from "@/components/ConcertOrganizer";

@@ -152,6 +152,29 @@ class NeonClient {
 		}
 	}
 
+	public async updateUserRippleRecomputeAt() {
+		if (this.#sql && this.#session?.user?.id) {
+			await this.#sql`
+			UPDATE users
+			SET "recomputeRipplesAt" = ${Math.floor(Date.now() / 1000) + 259200}
+			WHERE "id" = ${this.#session.user.id}
+			`;
+		}
+	}
+
+	public async fetchRecomputeRipplesTime() {
+		if (this.#sql && this.#session?.user?.id) {
+			const result = await this.#sql`
+			SELECT "recomputeRipplesAt" as "recomputeRipplesAt" FROM users WHERE "id" = ${this.#session.user.id}
+			`;
+			if (result && result[0] !== null) {
+				return result[0].recomputeRipplesAt;
+			}
+		}
+
+		return 0;
+	}
+
 	public async upsertSong(trackData: any): Promise<Song> {
 		if (!this.#sql) {
 			throw new Error("Database connection not available");

@@ -24,8 +24,8 @@ const Interface: React.FC<InterfaceProps> = ({ itemsCount, rippleId }) => {
 						transition={{ ease: "easeOut", duration: 0.5 }}
 						className="absolute top-2 left-8"
 					>
-						<h1 className=" text-2xl font-bold">{rippleId}</h1>
-						<p className=" text-sm">{rippleId}</p>
+						{/* <h1 className=" text-2xl font-bold">{rippleId}</h1>
+						<p className=" text-sm">{rippleId}</p> */}
 					</motion.div>
 				) : (
 					<motion.div
