@@ -131,7 +131,7 @@ const TrackView = () => {
 							<div className="mb-6">
 								<Waveform
 									trackTime={120000}
-									duration={selectedTrack?.duration_ms}
+									duration={selectedTrack!.durationMs}
 									commentTime={
 										hoveredCommentTime ? hoveredCommentTime : undefined
 									}

@@ -2,7 +2,10 @@ import { auth } from "@/auth";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import { Session } from "next-auth";
 import { DateTime } from "next-auth/providers/kakao";
-import SpotifyClient, { ClientSong, SongAristsGenres } from "../spotify/SpotifyClient";
+import SpotifyClient, {
+	ClientSong,
+	SongAristsGenres,
+} from "../spotify/SpotifyClient";
 import fs from "fs";
 import path from "path";
 import csv from "fast-csv";
@@ -13,6 +16,19 @@ export type SpotifyTokens = {
 	refreshToken: string;
 	expiresAt: number;
 };
+
+export type Comment = {
+    id: number;
+    text: string;
+    created_at: string;
+    updated_at: string;
+    user: {
+        id: number;
+        name: string;
+        email: string;
+        image: string;
+    }
+}
 
 export type User = {
 	id: number;
@@ -165,7 +181,9 @@ class NeonClient {
 	public async fetchRecomputeRipplesTime() {
 		if (this.#sql && this.#session?.user?.id) {
 			const result = await this.#sql`
-			SELECT "recomputeRipplesAt" as "recomputeRipplesAt" FROM users WHERE "id" = ${this.#session.user.id}
+			SELECT "recomputeRipplesAt" as "recomputeRipplesAt" FROM users WHERE "id" = ${
+				this.#session.user.id
+			}
 			`;
 			if (result && result[0] !== null) {
 				return result[0].recomputeRipplesAt;
@@ -453,7 +471,6 @@ class NeonClient {
 					RETURNING id, ripple_id, radius, x;
 					`;
 
-
 					response = await this.#sql`
                     INSERT INTO ripple_clusters (ripple_id, cluster_id)
                     VALUES (${ripple.id}, ${clusters[i].id})
@@ -482,7 +499,7 @@ class NeonClient {
 			//     }
 			// }
 			// if (!createdRipple) {
-				// add the cluster to the user
+			// add the cluster to the user
 			let createdRipple = {
 				id: -1,
 				x: -1,
@@ -586,7 +603,6 @@ class NeonClient {
 				ON CONFLICT (ripple_id, user_id) 
 				DO UPDATE SET updated_at = NOW();
 				`;
-
 			}
 		}
 
@@ -662,14 +678,16 @@ class NeonClient {
 		const ripples = [];
 		if (this.#sql) {
 			const result = await this.#sql`
-				SELECT ripple_id as "rippleId" FROM ripple_users WHERE "user_id" = ${this.#session!.user!.id}
+				SELECT ripple_id as "rippleId" FROM ripple_users WHERE "user_id" = ${
+					this.#session!.user!.id
+				}
 			`;
 
 			for (const record of result) {
 				let rippleId = Number(record.rippleId);
 				ripples.push(rippleId);
 			}
-		};
+		}
 
 		return ripples;
 	}
@@ -685,12 +703,14 @@ class NeonClient {
 				let spotifyId = record.spotifyId;
 				spotifyIds.push(spotifyId);
 			}
-		};
+		}
 
 		return spotifyIds;
 	}
 
-	public async fetchSpotifySongIds(rippleIds: number[]): Promise<Map<Number, string[]>> {
+	public async fetchSpotifySongIds(
+		rippleIds: number[]
+	): Promise<Map<Number, string[]>> {
 		const rippleToIds = new Map<Number, string[]>();
 
 		for (const rippleId of rippleIds) {
@@ -699,6 +719,63 @@ class NeonClient {
 		}
 
 		return rippleToIds;
+	}
+
+	public async postCommentToRipple(text: string, rippleId: number): Promise<Comment | null> {
+		if (!this.#sql || !this.#session?.user?.id) return null;
+		
+		const response = await this.#sql`
+			WITH inserted_comment AS (
+				INSERT INTO comments (text, ripple_id, user_id)
+				VALUES (${text}, ${rippleId}, ${Number(this.#session.user.id)})
+				RETURNING id, text, ripple_id, user_id, created_at, updated_at
+			)
+			SELECT 
+				c.id,
+				c.text,
+				c.created_at,
+				c.updated_at,
+				json_build_object(
+					'id', u.id,
+					'name', u.name,
+					'email', u.email,
+					'image', u.image
+				) as user
+			FROM inserted_comment c
+			JOIN users u ON u.id = c.user_id;
+		`;
+	
+		return response[0] as Comment;
+	}
+
+	public async getCommentsForRipple(
+		rippleId: number, 
+		limit: number = 50, 
+		offset: number = 0
+	): Promise<Comment[]> {
+		if (!this.#sql) return [];
+		
+		const response = await this.#sql`
+			SELECT 
+				c.id,
+				c.text,
+				c.created_at,
+				c.updated_at,
+				json_build_object(
+					'id', u.id,
+					'name', u.name,
+					'email', u.email,
+					'image', u.image
+				) as user
+			FROM comments c
+			JOIN users u ON c.user_id = u.id
+			WHERE c.ripple_id = ${rippleId}
+			ORDER BY c.created_at ASC
+			LIMIT ${limit}
+			OFFSET ${offset};
+		`;
+	
+		return response as Comment[];
 	}
 }
 

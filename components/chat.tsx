@@ -1,8 +1,10 @@
+"use client"
 import { useState } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Send } from "lucide-react";
+import NeonClient, { Comment } from "@/lib/database/NeonClient";
 
 interface Message {
 	id: string;
@@ -11,30 +13,35 @@ interface Message {
 	timestamp: Date;
 }
 
-export default function Chat() {
-	const [messages, setMessages] = useState<Message[]>([
+export default function Chat({
+	chats,
+	rippleId,
+}: {
+	chats: Comment[];
+	rippleId: number;
+}) {
+	const [messages, setMessages] = useState<Comment[]>([
 		{
-			id: "1",
-			content: "Welcome to the chat! 👋",
-			sender: "System",
-			timestamp: new Date(),
+			id: 0,
+			text: "Welcome to the chat! 👋",
+			user: {
+				id: 0,
+				name: "System",
+				email: "",
+				image: "",
+			},
+			created_at: new Date().toLocaleTimeString(),
+			updated_at: new Date().toLocaleTimeString(),
 		},
+		...chats,
 	]);
-	const [newMessage, setNewMessage] = useState("");
 
 	const handleSendMessage = (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!newMessage.trim()) return;
 
-		const message: Message = {
-			id: Date.now().toString(),
-			content: newMessage,
-			sender: "You",
-			timestamp: new Date(),
-		};
+		// postChat(newMessage, rippleId);
 
-		setMessages([...messages, message]);
-		setNewMessage("");
+		// setMessages([...messages, ]);
 	};
 
 	return (
@@ -45,29 +52,45 @@ export default function Chat() {
 					<Card
 						key={message.id}
 						className={`p-3 ${
-							message.sender === "You"
+							message.user.image.length !== 0
 								? "ml-auto bg-blue-500 text-white"
 								: "mr-auto"
 						} max-w-[80%]`}
 					>
 						<div className="flex flex-col">
 							<div className="flex items-center justify-between mb-1">
-								<span className="font-medium text-sm">{message.sender}</span>
+								<span className="font-medium text-sm">{message.user.name}</span>
 								<span className="text-xs opacity-75">
-									{message.timestamp.toLocaleTimeString()}
+									{new Date(message.created_at).toLocaleTimeString()}
 								</span>
 							</div>
-							<p className="text-sm">{message.content}</p>
+							<p className="text-sm">{message.text}</p>
 						</div>
 					</Card>
 				))}
 			</div>
 
 			{/* Message input */}
-			<form onSubmit={handleSendMessage} className="flex gap-2">
+			<form
+				action={async (a: any) => {
+					console.log(a)
+					const response = await fetch("/api/neon", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({text: a.get('chatinput'), id: rippleId}),
+					});
+		
+					const result = await response.json();
+					if (result.success) {
+						setMessages((messages) => [...messages, result.data])
+					}
+				}}
+				className="flex gap-2"
+			>
 				<Input
-					value={newMessage}
-					onChange={(e) => setNewMessage(e.target.value)}
+					name="chatinput"
 					placeholder="Type a message..."
 					className="flex-1"
 				/>

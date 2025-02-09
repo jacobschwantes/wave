@@ -11,28 +11,34 @@ import ConcertOrganizer from "@/components/ConcertOrganizer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import Chat from "./chat";
 import { ClientSong } from "@/lib/spotify/SpotifyClient";
+import NeonClient, { Comment } from "@/lib/database/NeonClient";
 
 export default function RippleViewClient({
   tracks,
   rippleId,
+  chats,
 }: {
   tracks: ClientSong[];
   rippleId: string;
+  chats: Comment[];
 }) {
-  return (
-    <TrackProvider>
-      <TabContainer tracks={tracks} rippleId={rippleId} />
-    </TrackProvider>
-  );
+
+	return (
+		<TrackProvider>
+          <TabContainer tracks={tracks} rippleId={rippleId} chats={chats} />
+		</TrackProvider>
+	);
 }
 
 // new component to use context safely
 function TabContainer({
   tracks,
   rippleId,
+  chats,
 }: {
   tracks: ClientSong[];
   rippleId: string;
+  chats: Comment[];
 }) {
   const { setSelectedTrack } = useTrackContext();
 
@@ -63,7 +69,7 @@ function TabContainer({
         </TabsContent>
 
         <TabsContent value="chat" className="h-[calc(100dvh-150px)]">
-          <Chat />
+          <Chat chats={chats} rippleId={Number(rippleId)} />
         </TabsContent>
       </Tabs>
     </main>
