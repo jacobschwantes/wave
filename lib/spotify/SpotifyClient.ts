@@ -90,8 +90,7 @@ class SpotifyClient {
 				}),
 			};
 
-			const body = await fetch(url, payload);
-			const response = await body.json();
+			const response = await fetch(url, payload);
 
 			if (!response.ok) {
 				console.log("Spotify Request Failed");
@@ -99,11 +98,11 @@ class SpotifyClient {
 			}
 
 			const refreshedTokens = await response.json();
+			console.log(refreshedTokens);
 
 			this.#accessToken = refreshedTokens.access_token;
-			this.#expiresAt = Number(
-				(Date.now() / 1000).toFixed(0) + Number(refreshedTokens.expires_in)
-			);
+			this.#expiresAt = Math.floor(Date.now() / 1000) + refreshedTokens.expires_in;
+			console.log(this.#expiresAt);
 			if (refreshedTokens.refresh_token) {
 				this.#refreshToken = refreshedTokens.refresh_token;
 			}
@@ -154,16 +153,19 @@ class SpotifyClient {
 		after: string = "",
 		before: string = ""
 	) {
-		const params: Record<string, string> = { "limit": limit.toString() };
-        if (after) {
-            params["after"] = after;
-        }
-        if (before) {
-            params["before"] = before;
-        }
+		const params: Record<string, string> = { limit: limit.toString() };
+		if (after) {
+			params["after"] = after;
+		}
+		if (before) {
+			params["before"] = before;
+		}
 
-        const response = await this.#makeSpotifyAPIRequest("me/player/recently-played", params);
-        return response;
+		const response = await this.#makeSpotifyAPIRequest(
+			"me/player/recently-played",
+			params
+		);
+		return response;
 	}
 }
 
