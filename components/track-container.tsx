@@ -9,7 +9,7 @@ import { Suspense, useState } from "react";
 import TrackView from "./track-view";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "./ui/button";
-import { handleClientScriptLoad } from "next/script";
+import Chat from "./chat";
 
 export default function TrackContainer({
 	tracks,
@@ -32,7 +32,7 @@ export default function TrackContainer({
 
 				{selectedTab === "community" && <>community</>}
 
-				{selectedTab === "chat" && <>chat</>}
+				{selectedTab === "chat" && <Chat />}
 
 				<ContainerTabs setSelectedTab={setSelectedTab} />
 			</main>

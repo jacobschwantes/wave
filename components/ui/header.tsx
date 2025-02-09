@@ -9,7 +9,9 @@ const navItems = [
 export default function Header() {
 	return (
 		<header className="bg-muted w-full h-16 flex items-center justify-between px-8">
-			<h1 className="text-2xl font-bold">wave</h1>
+			<Link href="/">
+				<h1 className="text-2xl font-bold">wave</h1>
+			</Link>
 			<nav className="flex items-center gap-8">
 				{navItems.map((item) => (
 					<Link

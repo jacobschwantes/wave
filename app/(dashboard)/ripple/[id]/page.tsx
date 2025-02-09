@@ -16,11 +16,8 @@ export default async function CommunityPage({
 	return (
 		<div className="flex-1 overflow-hidden">
 			<div className="flex-1">
-				<TopTracks
-					tracks={tracks}
-					rippleId={id}
-				/>
-			</div>  
+				<TopTracks tracks={tracks} rippleId={id} />
+			</div>
 		</div>
 	);
 }
