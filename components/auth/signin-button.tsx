@@ -1,4 +1,6 @@
-import { signIn } from "@/auth";
+"use client"
+
+import { signInWithSpotify } from "@/app/actions/auth"
 
 export function SignIn() {
 	return (
@@ -10,12 +12,7 @@ export function SignIn() {
 				<p className="mb-8 text-secondary-foreground">
 					Connect with your Spotify account to get started
 				</p>
-				<form
-					action={async () => {
-						"use server";
-						await signIn("spotify");
-					}}
-				>
+				<form action={signInWithSpotify}>
 					<button
 						type="submit"
 						className="flex items-center gap-2 rounded-full bg-[#1DB954] px-6 py-3 font-semibold text-white transition-all hover:bg-[#1ed760] focus:ring-2 focus:ring-[#1DB954] focus:ring-offset-2"

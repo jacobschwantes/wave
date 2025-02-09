@@ -62,6 +62,7 @@ const SceneContainer = ({
   // }'
 
   useEffect(() => {
+	console.log(selectedTrack)
     if (selectedTrack) {
       setSelectedTrackId(selectedTrack.id);
     }
