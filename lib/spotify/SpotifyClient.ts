@@ -15,6 +15,17 @@ export type SongAristsGenres = {
 	}[];
 };
 
+export type ClientSong = {
+	id: string;
+	title: string;
+	artist: string;
+	album: string;
+	albumCover: string;
+	durationMs: number;
+	previewUrl: string;
+	spotifyUrl: string; 
+}
+
 class SpotifyClient {
 	private static instance: SpotifyClient | null = null;
 	#neonClient: NeonClient | null = null;
@@ -123,6 +134,29 @@ class SpotifyClient {
 		}
 
 		return await response.json();
+	}
+
+	private mapSpotifyTrackToCustomSong(spotifyTrack: any) {
+		return {
+			id: spotifyTrack.id,
+			title: spotifyTrack.name,
+			artist: spotifyTrack.artists[0].name,
+			album: spotifyTrack.album.name,
+			albumCover: spotifyTrack.album.images.length > 0 ? spotifyTrack.album.images[0].url : null,
+			durationMs: spotifyTrack.duration_ms,
+			previewUrl: spotifyTrack.preview_url,
+			spotifyUrl: spotifyTrack.external_urls.spotify
+		};
+	}
+
+	async getBatchSongs(ids: string[]) {
+		const params = { ids: ids.join(","), market: "US" };
+		const response = await this.#makeSpotifyAPIRequest(
+			"tracks",
+			params
+		);
+
+		const songs: ClientSong = response.tracks.map((track: any) => this.mapSpotifyTrackToCustomSong(track));
 	}
 
 	async #getRecentlyPlayedTracks(
