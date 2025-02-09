@@ -3,7 +3,7 @@
 import { signIn, signOut } from "@/auth"
 
 export async function signInWithSpotify() {
-  await signIn("spotify")
+  await signIn("spotify", { redirectTo: "/home" })
 }
 
 export async function signOutUser() {
