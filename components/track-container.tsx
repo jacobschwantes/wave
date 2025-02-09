@@ -9,6 +9,7 @@ import { Suspense, useState } from "react";
 import TrackView from "./track-view";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "./ui/button";
+import { handleClientScriptLoad } from "next/script";
 
 export default function TrackContainer({
 	tracks,
@@ -33,13 +34,30 @@ export default function TrackContainer({
 
 				{selectedTab === "chat" && <>chat</>}
 
-				<div className="absolute bottom-0 left-0 z-50 flex gap-2">
-					<Button onClick={() => setSelectedTab("tracks")}>tracks</Button>
-					<Button onClick={() => setSelectedTab("community")}>community</Button>
-					<Button onClick={() => setSelectedTab("chat")}>chat</Button>
-				</div>
+				<ContainerTabs setSelectedTab={setSelectedTab} />
 			</main>
 		</TrackProvider>
+	);
+}
+
+function ContainerTabs({
+	setSelectedTab,
+}: {
+	setSelectedTab: (tab: string) => void;
+}) {
+	const { setSelectedTrack } = useTrackContext();
+
+	function handleTabClick(tab: string) {
+		setSelectedTab(tab);
+		setSelectedTrack(null);
+	}
+
+	return (
+		<div className="absolute bottom-0 left-0 z-50 flex gap-2">
+			<Button onClick={() => handleTabClick("tracks")}>tracks</Button>
+			<Button onClick={() => handleTabClick("community")}>community</Button>
+			<Button onClick={() => handleTabClick("chat")}>chat</Button>
+		</div>
 	);
 }
 

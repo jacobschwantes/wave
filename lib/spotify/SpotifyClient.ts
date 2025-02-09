@@ -256,6 +256,10 @@ class SpotifyClient {
 		console.log("dbArtists", dbArtists);
 		console.log("song artist genre structure", this.#userRecentSongs);
 	}
+
+	public async getRecentlyPlayedTracks() {
+		return this.#makeSpotifyAPIRequest("me/player/recently-played");
+	}
 }
 
 export default SpotifyClient;

@@ -1,14 +1,13 @@
-import { signOut } from "@/auth";
+"use client"
 
+import { signOutUser } from "@/app/actions/auth"
+import { Button } from "@/components/ui/button"
+
+// client component
 export function SignOut() {
 	return (
-		<form
-			action={async () => {
-				"use server";
-				await signOut();
-			}}
-		>
-			<button type="submit">Sign Out</button>
+		<form action={signOutUser}>
+			<Button type="submit">Sign Out</Button>
 		</form>
 	);
 }
