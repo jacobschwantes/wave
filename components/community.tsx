@@ -2,6 +2,7 @@
 import { use, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import TrackView from "@/components/track-view";
+import TopTracks from "./track-container";
 
 export default function CommunityPageClient({
   params,
@@ -15,16 +16,20 @@ export default function CommunityPageClient({
   const searchParams = useSearchParams();
   const [tracks, setTracks] = useState<any[]>(recentTracks);
   const [tempTracks, setTempTracks] = useState<any[]>([]);
-
+  const [selectedTrackId, setSelectedTrackId] = useState<any | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<any | null>(null);
   useEffect(() => {
     setTracks(recentTracks);
-    const tempTracks = recentTracks.items.map((item: any) => ({
-      id: item.track.id,
-      title: item.track.name,
-      artist: item.track.artists[0].name,
-      albumArt: item.track.album.images[0].url,
-      duration: item.track.duration_ms,
-    }));
+    // const tempTracks = recentTracks.items.map((item: any) => ({
+    //   id: item.track.id,
+    //   title: item.track.name,
+    //   artist: item.track.artists[0].name,
+    //   albumArt: item.track.album.images[0].url,
+    //   duration: item.track.duration_ms,
+    // }));
+
+    const tracksArray = recentTracks.items.map((item: any) => item.track);
+    setTracks(tracksArray);
 
     // add fake data to temp tracks
     const fakeTracks = tempTracks.map((track: any) => ({
@@ -46,11 +51,33 @@ export default function CommunityPageClient({
   // get trackId from query params
   const trackId = searchParams.get("track");
 
-  // find selected track from trackId
-  const selectedTrack = trackId ? tempTracks.find((t) => t.id === trackId) : null;
-
   // update query params when selecting track
-  const handleTrackSelect = (track: any | null) => {
+  const handleTrackSelect = (trackId: string) => {
+    const track = recentTracks.items.find((t: any) => t.track.id === trackId);
+    let fakeTrack = null;
+    if (track) {
+      console.log("track", track);
+      fakeTrack = {
+        id: track.track.id,
+        title: track.track.name,
+        artist: track.track.artists[0].name,
+        albumArt: track.track.album.images[0].url,
+        duration: track.track.duration_ms,
+        reactions: [{ id: "1", type: "like", count: 0 }],
+        comments: [
+          {
+            id: "1",
+            content: "First listen!",
+            author: "Anonymous",
+            likes: 0,
+            commentTime: 16200,
+          },
+        ],
+      };
+    }
+
+    setSelectedTrack(fakeTrack);
+    console.log("selectedTrack", fakeTrack);
     const params = new URLSearchParams(searchParams.toString());
     if (track) {
       params.set("track", track.id);
@@ -60,6 +87,11 @@ export default function CommunityPageClient({
     router.push(`?${params.toString()}`);
   };
 
+  useEffect(() => {
+    console.log("selectedTrackId update", selectedTrackId);
+    handleTrackSelect(selectedTrackId);
+  }, [selectedTrackId]);
+
   return (
     <div>
       {selectedTrack ? (
@@ -68,7 +100,8 @@ export default function CommunityPageClient({
         </div>
       ) : (
         <>
-          <h1>community: {id}</h1>
+          <TopTracks setSelectedTrackId={setSelectedTrackId} tracks={tracks} />
+          {/* <h1>community: {id}</h1>
           <div className="space-y-2">
             {tempTracks.map((track) => (
               <div
@@ -89,7 +122,7 @@ export default function CommunityPageClient({
                 </div>
               </div>
             ))}
-          </div>
+          </div> */}
         </>
       )}
     </div>
