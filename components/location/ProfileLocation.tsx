@@ -83,7 +83,11 @@ export default function ProfileLocation({ userId }: { userId: string }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-4">
           {locationName && (
-            <span className="text-sm text-neutral-600">{locationName}</span>
+            <span className="text-sm text-neutral-600">
+              {locationName.length > 50
+                ? locationName.slice(0, 50) + "..."
+                : locationName}
+            </span>
           )}
           <DialogTrigger asChild>
             <Button variant="outline">Update</Button>

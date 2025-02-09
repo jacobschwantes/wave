@@ -7,14 +7,20 @@ const publicPaths = ["/"]
 
 export async function middleware(request: NextRequest) {
   const session = await auth()
-  const isPublicPath = publicPaths.includes(request.nextUrl.pathname)
+  const path = request.nextUrl.pathname
+  const isPublicPath = publicPaths.includes(path)
+
+  // skip middleware for root path
+  if (path === "/") {
+    return
+  }
 
   // redirect to home if authenticated and trying to access public path
   if (session && isPublicPath) {
-    return NextResponse.redirect(new URL("/home", request.url))
+    return NextResponse.redirect(new URL("/", request.url))
   }
 
-  // redirect to signin if unauthenticated and trying to access protected path
+  // redirect to home if unauthenticated and trying to access protected path
   if (!session && !isPublicPath) {
     return NextResponse.redirect(new URL("/", request.url))
   }
