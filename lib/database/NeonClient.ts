@@ -3,6 +3,9 @@ import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import { Session } from "next-auth";
 import { DateTime } from "next-auth/providers/kakao";
 import SpotifyClient from "../spotify/SpotifyClient";
+import * as csv from "@fast-csv/parse";
+import fs from "fs"
+import path, { parse } from "path";
 
 export type SpotifyTokens = {
 	accessToken: string;
@@ -60,11 +63,18 @@ export type Ripple = {
     updated_at: DateTime;
 }
 
+export type GenreCoordinate = {
+    genre: string;
+    x: number;
+    y: number;
+}
+
 class NeonClient {
 	private static instance: NeonClient | null = null;
 	#sql: NeonQueryFunction<false, false> | null = null;
     #spotifyClient: SpotifyClient|null = null;
     #session: Session|null = null;
+    #genreCoordinates: GenreCoordinate[] = [];
 
 	private constructor() {
 		this.#sql = neon(process.env.DATABASE_URL as string);
@@ -83,6 +93,7 @@ class NeonClient {
 		try {
 			this.#session = await auth();
             this.#spotifyClient = await SpotifyClient.getInstance();
+            this.loadGenreCsv();
 		} catch (error) {
 			throw new Error("Failed to initialize NeonClient");
 		}
@@ -198,6 +209,18 @@ class NeonClient {
         return artists;
     }
 
+    private loadGenreCsv() {
+        const genre_coordinates: { genre: string, x: number, y: number }[] = [] 
+        const filePath = path.join("/csv", "genre_attrs.csv");        
+        fs.createReadStream(filePath)
+            .pipe(csv.parse({ headers: true }))
+            .on("data", (row) => {
+                genre_coordinates.push(row);
+            })
+        this.#genreCoordinates = genre_coordinates;
+        console.log(this.#genreCoordinates);
+    }
+
     private getGenreCoordinate(genre: string) {
         return { x: 0, y: 0}
     }
@@ -220,7 +243,6 @@ class NeonClient {
                     `;
     
                     if (this.#spotifyClient) {
-                        console.log("CLIENT IS REAL")
                         // this.#spotifyClient.appendDbIdToArtistObj(response[0].id, artist.spotify_id);
                     }
                     
