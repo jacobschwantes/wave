@@ -1,6 +1,7 @@
 import { Ripple } from "@/types/ripple";
 import { RippleSection } from "@/components/ripple-section";
 import SpotifyClient from "@/lib/spotify/SpotifyClient";
+import NeonClient from "@/lib/database/NeonClient";
 
 export const sampleRipples: Ripple[] = [
 	{
@@ -31,7 +32,10 @@ export const sampleRipples: Ripple[] = [
 
 export default async function Home() {
 	const spotifyClient = await SpotifyClient.getInstance();	
-	// await spotifyClient.computeClustersAndIdentifyRipples();
+	const recomputeRipplesAt = await (await NeonClient.getInstance()).fetchRecomputeRipplesTime();
+	if (Date.now() / 1000 >= recomputeRipplesAt) {
+		await spotifyClient.computeClustersAndIdentifyRipples();
+	}
 	const rippleToSongs = await spotifyClient.getUserSongs();
 
 	return (

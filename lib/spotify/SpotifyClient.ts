@@ -112,7 +112,6 @@ class SpotifyClient {
 	public async getAccessToken(): Promise<string> {
 		if (Date.now() / 1000 >= this.#expiresAt) {
 			await this.#refreshAccessToken();
-			await this.computeClustersAndIdentifyRipples();
 		}
 		return this.#accessToken;
 	}
@@ -314,6 +313,7 @@ class SpotifyClient {
 		await this.#neonClient.generateRelationships(this.#userRecentSongs);
 		const clusters = await this.#neonClient.createClusters(dbGenres);
 		await this.#neonClient.createRipples(clusters, this.#userRecentSongs);
+		await this.#neonClient.updateUserRippleRecomputeAt();
 	}
 
 	public async getRecentlyPlayedTracks() {
