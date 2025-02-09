@@ -47,6 +47,39 @@ const TrackView = () => {
 		number | undefined
 	>();
 	const [newComment, setNewComment] = useState("");
+	const [isSaving, setIsSaving] = useState(false);
+	const [isSaved, setIsSaved] = useState(false);
+
+	const handleSaveToSpotify = async () => {
+		if (!selectedTrack?.id || isSaved) return;
+
+		setIsSaving(true);
+		try {
+			const res = await fetch('/api/spotify/save-track', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ trackId: selectedTrack.id }),
+			});
+			
+			const data = await res.json();
+			if (!res.ok) {
+				if (data.needsReauth) {
+					// Redirect to sign in
+					window.location.href = '/api/auth/signin'
+					return
+				}
+				throw new Error(data.error);
+			}
+			
+			setIsSaved(true); // track saved successfully
+		} catch (err) {
+			console.error('Error saving track:', err);
+		} finally {
+			setIsSaving(false);
+		}
+	};
 
 	const sampleComments: Comment[] = [
 		{
@@ -79,7 +112,7 @@ const TrackView = () => {
 			createdAt: "2025-02-01",
 			author: "John Doe",
 			likes: 10,
-			commentTime: 16200,
+			commentTime: 19200,
 		},
 		{
 			id: "5",
@@ -87,7 +120,7 @@ const TrackView = () => {
 			createdAt: "2025-02-01",
 			author: "John Doe",
 			likes: 10,
-			commentTime: 16200,
+			commentTime: 32200,
 		},
 		{
 			id: "6",
@@ -95,7 +128,7 @@ const TrackView = () => {
 			createdAt: "2025-02-01",
 			author: "John Doe",
 			likes: 10,
-			commentTime: 16200,
+			commentTime: 56200,
 		},
 	];
 
@@ -107,6 +140,15 @@ const TrackView = () => {
 						{/* right column - comments */}
 						<div className="opacity-0 translate-y-4 animate-slide-fade h-full flex flex-col">
 							<div className="flex items-center gap-4 text-sm text-neutral-500 mb-6">
+								<Button 
+									onClick={handleSaveToSpotify}
+									disabled={isSaving || isSaved}
+									variant="outline"
+									size="sm"
+									className={isSaved ? 'opacity-50' : ''}
+								>
+									{isSaving ? 'Saving...' : isSaved ? 'Saved' : 'Save to Spotify'}
+								</Button>
 								{/* {selectedTrack?.reactions.map((reaction, index) => (
 									<div
 										key={reaction.id}

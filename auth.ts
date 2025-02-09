@@ -1,9 +1,7 @@
-import { neon } from '@neondatabase/serverless';
 import NextAuth from "next-auth";
 import Spotify from "next-auth/providers/spotify";
 import { Pool } from "@neondatabase/serverless";
 import PostgresAdapter from "@auth/pg-adapter";
-import type { JWT } from "next-auth/jwt";
 
 const spotifyScopes = [
     "user-read-email",
@@ -11,6 +9,7 @@ const spotifyScopes = [
     "playlist-read-private",
     "playlist-read-collaborative",
     "user-library-read",
+    "user-library-modify",
     "user-top-read",
     "user-read-recently-played",
     "user-follow-read",

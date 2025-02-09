@@ -113,7 +113,8 @@ class SpotifyClient {
 
 	async #makeSpotifyAPIRequest(
 		url: string,
-		params: Record<string, string> = {}
+		params: Record<string, string> = {},
+		options: RequestInit = {}
 	) {
 		const queryString =
 			Object.keys(params).length > 0 ? "?" + new URLSearchParams(params) : "";
@@ -121,14 +122,19 @@ class SpotifyClient {
 		const response = await fetch(this.SPOTIFY_BASE_URL + url + queryString, {
 			headers: {
 				Authorization: `Bearer ${await this.getAccessToken()}`,
+				'Content-Type': 'application/json'
 			},
+			...options
 		});
 
 		if (!response.ok) {
-			throw new Error(`Spotify API error: ${response.status}`);
+			const errorData = await response.json().catch(() => ({}));
+			throw new Error(`Spotify API error ${response.status}: ${JSON.stringify(errorData)}`);
 		}
 
-		return await response.json();
+		// handle empty response (like from PUT requests)
+		const text = await response.text();
+		return text ? JSON.parse(text) : null;
 	}
 
 	private mapSpotifyTrackToCustomSong(spotifyTrack: any) {
@@ -336,6 +342,23 @@ class SpotifyClient {
 		} catch (error) {
 			console.error('Failed to fetch artist image:', error);
 			return null;
+		}
+	}
+
+	async saveTrackToLibrary(trackId: string) {
+		if (!trackId) throw new Error('trackId is required')
+		
+		try {
+			const response = await this.#makeSpotifyAPIRequest(`me/tracks`, {}, {
+				method: 'PUT',
+				body: JSON.stringify({ ids: [trackId] })
+			})
+			
+			// spotify returns 200 with empty response for successful save
+			return { success: true }
+		} catch (error) {
+			console.error('Spotify save track error:', error)
+			throw error
 		}
 	}
 }
