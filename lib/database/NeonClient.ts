@@ -488,7 +488,6 @@ class NeonClient {
       }
       if (rippled.includes(i)) continue;
 
-      if (rippled.includes(i)) continue;
       let createdRipple: Ripple | null = null;
       for (let j = i + 1; j < clusters.length; j++) {
         if (createdRipple) {
