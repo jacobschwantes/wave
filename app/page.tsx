@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default async function Home() {
 	const session = await auth();
-
+	
 	return (
 		<main className="wave-bg min-h-screen relative">
 			<div className="wave-container absolute inset-0">
