@@ -1,6 +1,6 @@
 "use client";
 
-import { cameraSpeed, scrollOffset } from "@/lib/utils";
+import { cameraSpeed, scrollOffset } from "@/lib/animation";
 import { motion, useMotionValueEvent } from "framer-motion";
 import React, { useState } from "react";
 

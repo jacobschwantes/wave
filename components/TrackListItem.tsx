@@ -1,7 +1,7 @@
 import { useTrackContext } from "@/context/track-context";
 import useDimensions from "@/hooks/useDimensions";
 import { Track } from "@/types/track";
-import { cameraSpeed } from "@/lib/utils";
+import { cameraSpeed } from "@/lib/animation";
 import { fragmentShader, vertexShader } from "@/shaders/shader";
 import { useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";

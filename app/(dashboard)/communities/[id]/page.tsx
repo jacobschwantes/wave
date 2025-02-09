@@ -9,7 +9,7 @@ export default async function CommunityPage({
   const spotify = await SpotifyClient.getInstance();
   const recentTracksPayload = await spotify.getRecentlyPlayedTracks();
   return (
-    <div>
+    <div className="flex-1 overflow-hidden">
       <CommunityPageClient recentTracks={recentTracksPayload} params={params} />
     </div>
   );

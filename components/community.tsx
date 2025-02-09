@@ -93,14 +93,14 @@ export default function CommunityPageClient({
   }, [selectedTrackId]);
 
   return (
-    <div>
-      {selectedTrack ? (
+    <div className="flex-1">
+      {/* {selectedTrack ? (
         <div>
           <TrackView track={selectedTrack as any} />
         </div>
-      ) : (
+      ) : ( */}
         <>
-          <TopTracks setSelectedTrackId={setSelectedTrackId} tracks={tracks} />
+          <TopTracks setSelectedTrackId={setSelectedTrackId} tracks={tracks} rippleId={id} />
           {/* <h1>community: {id}</h1>
           <div className="space-y-2">
             {tempTracks.map((track) => (
@@ -124,7 +124,7 @@ export default function CommunityPageClient({
             ))}
           </div> */}
         </>
-      )}
+      {/* )} */}
     </div>
   );
 }

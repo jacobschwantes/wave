@@ -18,7 +18,6 @@ export function formatDate(date: string) {
 	return `${Math.floor(minutes / 1440)} days ago`;
 }
 
-import { motionValue } from "framer-motion";
 
 export const lerp = (start: number, end: number, factor: number) => {
 	return start + (end - start) * factor;
@@ -28,5 +27,3 @@ export const clamp = (value: number, min: number, max: number) => {
 	return Math.max(min, Math.min(max, value));
 };
 
-export const scrollOffset = motionValue(0);
-export const cameraSpeed = motionValue(0);
