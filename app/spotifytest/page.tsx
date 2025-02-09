@@ -6,13 +6,10 @@ export default async function Home() {
     const token = await spotifyClient.getAccessToken();
     console.log(token)
 
-    const tracks = await spotifyClient.getRecentlyPlayedTracks(40);
+    const tracks = await spotifyClient.computeClustersAndIdentifyRipples();
 
 	return (
 		<main className="wave-bg min-h-screen relative">
-            {tracks["items"].map((data: Object, idx: number) => (
-                <img key={`track_${idx}`} width={400} height={400} src={data.track.album.images[0].url} />
-            ))}
 		</main>
 	);
 }
