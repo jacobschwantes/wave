@@ -16,44 +16,6 @@ const spotifyScopes = [
     "user-follow-read",
 ].join(" ");
 
-type TokenType = JWT & {
-    accessToken: string;
-    accessTokenExpires: number;
-    refreshToken: string;
-    error?: string;
-};
-
-async function refreshAccessToken(token: TokenType): Promise<TokenType> {
-    try {
-        const response = await fetch("https://accounts.spotify.com/api/token", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-                Authorization: `Basic ${Buffer.from(
-                    `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
-                ).toString("base64")}`,
-            },
-            body: new URLSearchParams({
-                grant_type: "refresh_token",
-                refresh_token: token.refreshToken,
-            }),
-        });
-
-        const refreshedTokens = await response.json();
-        if (!response.ok) throw refreshedTokens;
-
-        return {
-            ...token,
-            accessToken: refreshedTokens.access_token,
-            accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000,
-            refreshToken: refreshedTokens.refresh_token ?? token.refreshToken,
-        };
-    } catch (error) {
-        console.error("Error refreshing access token:", error);
-        return { ...token, error: "RefreshAccessTokenError" };
-    }
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth(() => {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     return {
