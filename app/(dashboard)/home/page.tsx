@@ -27,7 +27,9 @@ export const sampleRipples: Ripple[] = [
 	// 	albumCovers: ["/album.png", "/album2.png"],
 	// },
 ];
-export default function Home() {
+
+export default async function Home() {
+	
 	return (
 		<div className="flex flex-col gap-16 max-w-4xl mx-auto py-16 px-4">
 			<div className="space-y-4">

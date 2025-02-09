@@ -49,25 +49,25 @@ export type Song = {
 
 export type Cluster = {
 	id: number;
-    x: number;
-    y: number;
-    radius: number;
+	x: number;
+	y: number;
+	radius: number;
 	genres: Genre[];
 	user_id: number;
 };
 
 interface Coordinate {
-    x: number;
-    y: number;
+	x: number;
+	y: number;
 }
 
 export type Ripple = {
 	id: number;
-    x: number;
-    y: number;
-    radius: number;
+	x: number;
+	y: number;
+	radius: number;
 	songs: Song[];
-    clusters: Cluster[];
+	clusters: Cluster[];
 	artists: Artist[];
 };
 
@@ -319,63 +319,83 @@ class NeonClient {
 		return [...new Set(_genres)];
 	}
 
-    private threshold = 1500;
-    private calculateCenter(coords: Coordinate[]) {
-        let x = 0;
-        let y = 0;
-        coords.forEach((coord) => {
-            x+= coord.x;
-            y+= coord.y;
-        })
+	private threshold = 1500;
+	private calculateCenter(coords: Coordinate[]) {
+		let x = 0;
+		let y = 0;
+		coords.forEach((coord) => {
+			x += coord.x;
+			y += coord.y;
+		});
 
-        x /= coords.length;
-        y /= coords.length;
-        return { x, y }
-    }
+		x /= coords.length;
+		y /= coords.length;
+		return { x, y };
+	}
 
-    private calculateRadius(coords: Coordinate[]) {
-        let radius = 0;
-        coords.forEach((coord) => {
-            radius += this.distance(coord, this.calculateCenter(coords));
-        })
-        return (radius / coords.length)
-    }
+	private calculateRadius(coords: Coordinate[]) {
+		let radius = 0;
+		coords.forEach((coord) => {
+			radius += this.distance(coord, this.calculateCenter(coords));
+		});
+		return radius / coords.length;
+	}
 
-    async createClusters(genres: Genre[]): Promise<Cluster[]> {
-        let clustered: number[] = [];
-        const clusters: Cluster[] = []
-        for (let i = 0; i < genres.length; i++) {
-            if (clustered.includes(i)) continue;
-            let createdCluster: Cluster|null = null;
-            for (let j = i + 1; j < genres.length; j++) {
-                if (createdCluster) {
-                    if (this.distance(genres[j] as Coordinate, createdCluster as Coordinate) + createdCluster.radius < this.threshold) {
-                        createdCluster.genres.push(genres[j])
-                        clustered.push(j)
-                    }
-                } else if (this.distance(genres[i], genres[j]) < this.threshold) {
-                    // this new cluster needs to be an object in the db
-                    clustered.push(j)
-                    createdCluster = { id: -1, x: -1, y: -1, radius: -1, genres: [genres[i], genres[j]], user_id: Number(this.#session!.user!.id) }
-                }
-            }
-            if (!createdCluster) {
-                // add the cluster to the user
-                createdCluster = { id: -1, x: -1, y: -1, radius: -1, genres: [genres[i]], user_id: Number(this.#session!.user!.id) }
-            }
-            const { x, y } = this.calculateCenter(createdCluster.genres);
-            const radius = this.calculateRadius(createdCluster.genres);
-            createdCluster.x = x;
-            createdCluster.y = y;
-            createdCluster.radius = radius;
-            clusters.push(createdCluster);
-        }
+	async createClusters(genres: Genre[]): Promise<Cluster[]> {
+		let clustered: number[] = [];
+		const clusters: Cluster[] = [];
+		for (let i = 0; i < genres.length; i++) {
+			if (clustered.includes(i)) continue;
+			let createdCluster: Cluster | null = null;
+			for (let j = i + 1; j < genres.length; j++) {
+				if (createdCluster) {
+					if (
+						this.distance(
+							genres[j] as Coordinate,
+							createdCluster as Coordinate
+						) +
+							createdCluster.radius <
+						this.threshold
+					) {
+						createdCluster.genres.push(genres[j]);
+						clustered.push(j);
+					}
+				} else if (this.distance(genres[i], genres[j]) < this.threshold) {
+					// this new cluster needs to be an object in the db
+					clustered.push(j);
+					createdCluster = {
+						id: -1,
+						x: -1,
+						y: -1,
+						radius: -1,
+						genres: [genres[i], genres[j]],
+						user_id: Number(this.#session!.user!.id),
+					};
+				}
+			}
+			if (!createdCluster) {
+				// add the cluster to the user
+				createdCluster = {
+					id: -1,
+					x: -1,
+					y: -1,
+					radius: -1,
+					genres: [genres[i]],
+					user_id: Number(this.#session!.user!.id),
+				};
+			}
+			const { x, y } = this.calculateCenter(createdCluster.genres);
+			const radius = this.calculateRadius(createdCluster.genres);
+			createdCluster.x = x;
+			createdCluster.y = y;
+			createdCluster.radius = radius;
+			clusters.push(createdCluster);
+		}
 
-
-        for (let i = 0; i < clusters.length; i++) {
-            const cluster = clusters[i];
-            if (this.#sql) {
-                let response = await this.#sql`
+		for (let i = 0; i < clusters.length; i++) {
+			const cluster = clusters[i];
+			if (this.#sql) {
+				let response = await this.#sql`
                 INSERT INTO clusters (user_id, x, y, radius)
                 VALUES (${cluster.user_id}, ${cluster.x}, ${cluster.y}, ${cluster.radius})
                 ON CONFLICT (user_id, x, y) 
@@ -383,16 +403,15 @@ class NeonClient {
                     updated_at = NOW()
                 RETURNING id, user_id, x, y, radius;
                 `;
-                clusters[i].id = response[0].id;
-            }
-        }
+				clusters[i].id = response[0].id;
+			}
+		}
 
-
-        for (let i = 0; i < clusters.length; i++) {
-            const cluster = clusters[i];
-            for (let j = 0; j < cluster.genres.length; j++) {
-                if (this.#sql) {
-                    let response = await this.#sql`
+		for (let i = 0; i < clusters.length; i++) {
+			const cluster = clusters[i];
+			for (let j = 0; j < cluster.genres.length; j++) {
+				if (this.#sql) {
+					let response = await this.#sql`
                     INSERT INTO cluster_genres (cluster_id, genre_name)
                     VALUES (${cluster.id}, ${cluster.genres[j].name})
                     ON CONFLICT (cluster_id, genre_name) 
@@ -400,77 +419,120 @@ class NeonClient {
                         updated_at = NOW()
                     RETURNING cluster_id, genre_name;
                     `;
-                }
-            }
-        }
+				}
+			}
+		}
 
-        return clusters;
-    }
+		return clusters;
+	}
 
-    async createRipples(clusters: Cluster[], songs: SongAristsGenres[]): Promise<Ripple[]> {
-        let rippled: number[] = [];
-        const ripples: Ripple[] = []
-        for (let i = 0; i < clusters.length; i++) {
-            if (rippled.includes(i)) continue;
-            let createdRipple: Ripple|null = null;
-            for (let j = i + 1; j < clusters.length; j++) {
-                if (createdRipple) {
-                    if (this.distance(clusters[j] as Coordinate, createdRipple as Coordinate) + createdRipple.radius < this.threshold) {
-                        createdRipple.clusters.push(clusters[j])
-                        rippled.push(j)
-                    }
-                } else if (this.distance(clusters[i], clusters[j]) < this.threshold) {
-                    // this new cluster needs to be an object in the db
-                    rippled.push(j)
-                    createdRipple = { id: -1, x: -1, y: -1, radius: -1, clusters: [clusters[i], clusters[j]], songs: [], artists: [] }
-                }
-            }
-            if (!createdRipple) {
-                // add the cluster to the user
-                createdRipple = { id: -1, x: -1, y: -1, radius: -1, clusters: [clusters[i]], songs: [], artists: [] }
-            }
-            const { x, y } = this.calculateCenter(createdRipple.clusters);
-            const radius = this.calculateRadius(createdRipple.clusters);
-            createdRipple.x = x;
-            createdRipple.y = y;
-            createdRipple.radius = radius;
-            ripples.push(createdRipple);
-        }
+	async createRipples(
+		clusters: Cluster[],
+		songs: SongAristsGenres[]
+	): Promise<Ripple[]> {
+		let rippled: number[] = [];
+		const ripples: Ripple[] = [];
+		for (let i = 0; i < clusters.length; i++) {
+			if (!this.#sql) return [];
+			const existingRipples = await this.#sql`
+			SELECT ripple_id FROM ripple_clusters WHERE cluster_id = ${clusters[i].id}
+			`;
+			for (const ripple of existingRipples) {
+				if (this.distance(clusters[i], ripple as Coordinate) < this.threshold) {
+					ripple.clusters.push(clusters[i]);
+					ripple.radius = this.calculateRadius(ripple.clusters);
+					ripple.x = this.calculateCenter(ripple.clusters).x;
+					let response = await this.#sql`
+					UPDATE ripples
+					SET 
+						radius = ${ripple.radius},
+						x = ${ripple.x},
+						updated_at = NOW()
+					WHERE id = ${ripple.id}
+					RETURNING id, ripple_id, radius, x;
+					`;
 
-        
-        for (let i = 0; i < ripples.length; i++) {
-            if (!this.#sql) return []
-            const ripple = ripples[i];
-            const genres: string[] = []
+
+					response = await this.#sql`
+                    INSERT INTO ripple_clusters (ripple_id, cluster_id)
+                    VALUES (${ripple.id}, ${clusters[i].id})
+                    RETURNING ripple_id, cluster_id;
+                    `;
+
+					rippled.push(i);
+					// only add the cluster to one ripple
+					break;
+				}
+			}
+			if (rippled.includes(i)) continue;
+
+			// if (rippled.includes(i)) continue;
+			// let createdRipple: Ripple|null = null;
+			// for (let j = i + 1; j < clusters.length; j++) {
+			//     if (createdRipple) {
+			//         if (this.distance(clusters[j] as Coordinate, createdRipple as Coordinate) + createdRipple.radius < this.threshold) {
+			//             createdRipple.clusters.push(clusters[j])
+			//             // rippled.push(j)
+			//         }
+			//     } else if (this.distance(clusters[i], clusters[j]) < this.threshold) {
+			//         // this new cluster needs to be an object in the db
+			//         // rippled.push(j)
+			//         createdRipple = { id: -1, x: -1, y: -1, radius: -1, clusters: [clusters[i], clusters[j]], songs: [], artists: [] }
+			//     }
+			// }
+			// if (!createdRipple) {
+				// add the cluster to the user
+			let createdRipple = {
+				id: -1,
+				x: -1,
+				y: -1,
+				radius: -1,
+				clusters: [clusters[i]],
+				songs: [],
+				artists: [],
+			};
+			// }
+			const { x, y } = this.calculateCenter(createdRipple.clusters);
+			const radius = this.calculateRadius(createdRipple.clusters);
+			createdRipple.x = x;
+			createdRipple.y = y;
+			createdRipple.radius = radius;
+			ripples.push(createdRipple);
+		}
+
+		for (let i = 0; i < ripples.length; i++) {
+			if (!this.#sql) return [];
+			const ripple = ripples[i];
+			const genres: string[] = [];
 
 			for (const cluster of ripple.clusters) {
 				if (!this.#sql) return [];
 				const result = await this.#sql`
 					SELECT genre_name as "genreName" FROM cluster_genres WHERE "cluster_id" = ${cluster.id}
 				`;
-		
+
 				for (const record of result) {
 					let genre = record.genreName;
 					genres.push(genre);
 				}
 			}
 
-            const _songs = [];
-            const _artists = [];
-            for (let z = 0; z < songs.length; z++) {
-                for (let j = 0; j < songs[z].artists.length; j++) {
-                    const artist = songs[z].artists[j];
-                    for (let k = 0; k < artist.genres.length; k++ ) {
-                        const genre = artist.genres[k];
-                        if (genres.includes(genre.name)) {
-                            _songs.push(songs[z]);
-                            _artists.push(artist);
-                        }
-                    }
-                }
-            }
+			const _songs = [];
+			const _artists = [];
+			for (let z = 0; z < songs.length; z++) {
+				for (let j = 0; j < songs[z].artists.length; j++) {
+					const artist = songs[z].artists[j];
+					for (let k = 0; k < artist.genres.length; k++) {
+						const genre = artist.genres[k];
+						if (genres.includes(genre.name)) {
+							_songs.push(songs[z]);
+							_artists.push(artist);
+						}
+					}
+				}
+			}
 
-            let response = await this.#sql`
+			let response = await this.#sql`
             INSERT INTO ripples (x, y, radius)
             VALUES (${ripple.x}, ${ripple.y}, ${ripple.radius})
             ON CONFLICT (radius, x, y) 
@@ -478,21 +540,20 @@ class NeonClient {
                 updated_at = NOW()
             RETURNING id, x, y, radius;
             `;
-            ripples[i].id = response[0].id;
+			ripples[i].id = response[0].id;
 
-            
-            for (let j = 0; j < _songs.length; j++) {
-                let response = await this.#sql`
+			for (let j = 0; j < _songs.length; j++) {
+				let response = await this.#sql`
                 UPDATE songs 
                 SET ripple_id = ${ripples[i].id},
                     updated_at = NOW()
                 WHERE id = ${_songs[j].id}
                 RETURNING id, ripple_id;
                 `;
-            }
+			}
 
-            for (let j = 0; j < _artists.length; j++) {
-                let response = await this.#sql`
+			for (let j = 0; j < _artists.length; j++) {
+				let response = await this.#sql`
                 INSERT INTO ripple_artists (artist_id, ripple_id)
                 VALUES (${_artists[j].id}, ${ripples[i].id})
                 ON CONFLICT (artist_id, ripple_id) 
@@ -500,29 +561,42 @@ class NeonClient {
                     updated_at = NOW()
                 RETURNING artist_id, ripple_id;
                 `;
-            }
-        }
+			}
+		}
 
-
-        for (let i = 0; i < ripples.length; i++) {
-            const ripple = ripples[i];
-            for (let j = 0; j < ripples[i].clusters.length; j++) {
-                if (this.#sql) {
-                    let response = await this.#sql`
+		for (let i = 0; i < ripples.length; i++) {
+			const ripple = ripples[i];
+			for (let j = 0; j < ripples[i].clusters.length; j++) {
+				if (this.#sql) {
+					let response = await this.#sql`
                     INSERT INTO ripple_clusters (ripple_id, cluster_id)
                     VALUES (${ripple.id}, ${ripple.clusters[j].id})
                     RETURNING ripple_id, cluster_id;
                     `;
-                }
-            }
-        }
+				}
+			}
+		}
 
-        return ripples;
-    }
+		for (let i = 0; i < ripples.length; i++) {
+			if (this.#sql) {
+				let response = await this.#sql`
+				INSERT INTO ripple_users (ripple_id, user_id)
+				VALUES (${ripples[i].id}, ${this.#session!.user!.id})
+				ON CONFLICT (ripple_id, user_id) 
+				DO UPDATE SET updated_at = NOW();
+				`;
 
-    private distance(coord1: Coordinate, coord2: Coordinate) {
-        return Math.sqrt(Math.pow(coord2.x - coord1.x, 2) + Math.pow(coord2.y - coord1.y, 2))
-    }
+			}
+		}
+
+		return ripples;
+	}
+
+	private distance(coord1: Coordinate, coord2: Coordinate) {
+		return Math.sqrt(
+			Math.pow(coord2.x - coord1.x, 2) + Math.pow(coord2.y - coord1.y, 2)
+		);
+	}
 
 	// {
 	//     "id": 1034,
@@ -581,6 +655,49 @@ class NeonClient {
 				});
 			});
 		});
+	}
+
+	public async fetchRipples(): Promise<number[]> {
+		const ripples = [];
+		if (this.#sql) {
+			const result = await this.#sql`
+				SELECT ripple_id as "rippleId" FROM ripple_users WHERE "user_id" = ${this.#session!.user!.id}
+			`;
+
+			for (const record of result) {
+				let rippleId = Number(record.rippleId);
+				ripples.push(rippleId);
+			}
+		};
+
+		return ripples;
+	}
+
+	public async fetchSpotifyIdsOfRipple(rippleId: number) {
+		const spotifyIds = [];
+		if (this.#sql) {
+			const result = await this.#sql`
+				SELECT spotify_id as "spotifyId" FROM songs WHERE "ripple_id" = ${rippleId}
+			`;
+
+			for (const record of result) {
+				let spotifyId = record.spotifyId;
+				spotifyIds.push(spotifyId);
+			}
+		};
+
+		return spotifyIds;
+	}
+
+	public async fetchSpotifySongIds(rippleIds: number[]) {
+		const spotifyIds: string[][] = [];
+
+		for (const rippleId of rippleIds) {
+			const _spotifyIds = await this.fetchSpotifyIdsOfRipple(rippleId);
+			spotifyIds.push(_spotifyIds);
+		}
+
+		return spotifyIds
 	}
 }
 

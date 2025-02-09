@@ -149,14 +149,34 @@ class SpotifyClient {
 		};
 	}
 
-	async getBatchSongs(ids: string[]) {
+	async getBatchSongs(ids: string[]): Promise<ClientSong[]> {
 		const params = { ids: ids.join(","), market: "US" };
+		console.log(params)
 		const response = await this.#makeSpotifyAPIRequest(
 			"tracks",
 			params
 		);
 
-		const songs: ClientSong = response.tracks.map((track: any) => this.mapSpotifyTrackToCustomSong(track));
+		const songs: ClientSong[] = response.tracks.map((track: any) => this.mapSpotifyTrackToCustomSong(track));
+		return songs;
+	}
+
+	public async getUserSongs(): Promise<ClientSong[][]> {
+		if (!this.#neonClient) return [];
+		const ripples = await this.#neonClient.fetchRipples();
+		console.log("RIPPLES", ripples)
+
+		const spotifyIds2 = await this.#neonClient.fetchSpotifySongIds(ripples)
+		console.log("spotifyids2", spotifyIds2)
+		const clientSongs: ClientSong[][] = []
+		for (const spotifyIds of spotifyIds2) {
+			if (spotifyIds.length === 0) continue
+			const songs = await this.getBatchSongs(spotifyIds);
+			console.log("songs", songs)
+			clientSongs.push(songs);
+		}
+
+		return clientSongs;
 	}
 
 	async #getRecentlyPlayedTracks(
