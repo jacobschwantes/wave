@@ -5,27 +5,22 @@ import { TrackProvider, useTrackContext } from "@/context/track-context";
 import { Track } from "@/types/track";
 import { ScrollControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import TrackView from "./track-view";
 import { AnimatePresence, motion } from "motion/react";
 
-export default function TopTracks({
+export default function TrackContainer({
 	tracks,
-	setSelectedTrackId,
 	rippleId,
 }: {
 	tracks: Track[];
-	setSelectedTrackId: (id: string) => void;
 	rippleId: string;
 }) {
 	return (
 		<TrackProvider>
 			<main className="h-[calc(100dvh-70px)] w-screen relative overflow-hidden">
 				<Interface itemsCount={tracks.length} rippleId={rippleId} />
-				<SceneContainer
-					tracks={tracks}
-					setSelectedTrackId={setSelectedTrackId}
-				/>
+				<SceneContainer tracks={tracks} />
 			</main>
 		</TrackProvider>
 	);
@@ -33,44 +28,11 @@ export default function TopTracks({
 
 const SceneContainer = ({
 	tracks,
-	setSelectedTrackId,
 }: {
 	tracks: Track[];
-	setSelectedTrackId: (id: string) => void;
 }) => {
 	const { selectedTrack, setSelectedTrack } = useTrackContext();
 	const [key, setKey] = useState(0);
-	// if (selectedTrack) {
-	// 	console.log(selectedTrack.album.images[0].url);
-	// 	return (
-	// 		<div className="absolute inset-0">
-	// 			<motion.div
-	// 				style={{
-	// 					x: 0,
-	// 					y: 0,
-	// 					// width: "100%",
-	// 					// height: "100%",
-	// 				}}
-	// 				layoutId={selectedTrack.id}
-	// 				onClick={() => setSelectedTrack(null)}
-	// 			>
-	// 				<Image
-	// 					src={selectedTrack.album.images[0].url}
-	// 					alt="Reset"
-	// 					width={400}
-	// 					height={400}
-	// 					className="object-cover"
-	// 				/>
-	// 			</motion.div>
-	// 		</div>
-	// 	);
-	// }'
-
-	useEffect(() => {
-		if (selectedTrack) {
-			setSelectedTrackId(selectedTrack.id);
-		}
-	}, [selectedTrack]);
 
 	return (
 		<div key={key} className="absolute inset-0">

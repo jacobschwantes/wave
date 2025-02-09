@@ -103,41 +103,7 @@ const TrackView = () => {
 		<div className="absolute left-1/2 translate-x-6 top-1/4 -translate-y-1/4 z-50">
 			<div className="h-full max-w-5xl mx-auto p-6">
 				<div className="h-full flex flex-col">
-					{/* <Button
-						variant="ghost"
-						size="sm"
-						onClick={() => router.back()}
-						className="flex gap-2 animate-slide-fade mb-6 w-full justify-start"
-					>
-						<ArrowLeft className="w-4 h-4" />
-						Back
-					</Button> */}
-
 					<div className="grid grid-cols-2 gap-8 flex-1 min-h-0">
-						{/* left column */}
-						{/* <div className="space-y-6 opacity-0 translate-y-4 animate-slide-fade">
-							{selectedTrack?.album.images ? (
-								<Image
-									src={selectedTrack.album.images[0].url}
-									alt={`${selectedTrack.album.name} cover`}
-									className="w-full aspect-square rounded-lg"
-									width={500}
-									height={500}
-								/>
-							) : (
-								<div className="w-full aspect-square rounded-lg bg-neutral-100 flex items-center justify-center">
-									<p className="text-neutral-400 text-sm">no art available</p>
-								</div>
-							)}
-
-							<div className="flex flex-row gap-4 justify-between items-start">
-								<div className="flex flex-col gap-2 items-start">
-									<h2 className="text-2xl font-bold">{selectedTrack?.name}</h2>
-									<p className="text-lg text-neutral-600">{selectedTrack?.artists[0].name}</p>
-								</div>
-							</div>
-						</div> */}
-
 						{/* right column - comments */}
 						<div className="opacity-0 translate-y-4 animate-slide-fade h-full flex flex-col">
 							<div className="flex items-center gap-4 text-sm text-neutral-500 mb-6">
