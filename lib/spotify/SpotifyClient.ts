@@ -260,6 +260,30 @@ class SpotifyClient {
 	public async getRecentlyPlayedTracks() {
 		return this.#makeSpotifyAPIRequest("me/player/recently-played");
 	}
+
+	public async getArtistImage(artistName: string): Promise<string | null> {
+		try {
+			// search for artist
+			const params = {
+				q: artistName,
+				type: 'artist',
+				limit: '1'
+			};
+			
+			const response = await this.#makeSpotifyAPIRequest('search', params);
+			
+			if (response.artists.items.length > 0) {
+				const artist = response.artists.items[0];
+				// get the highest quality image available
+				return artist.images[0]?.url || null;
+			}
+			
+			return null;
+		} catch (error) {
+			console.error('Failed to fetch artist image:', error);
+			return null;
+		}
+	}
 }
 
 export default SpotifyClient;

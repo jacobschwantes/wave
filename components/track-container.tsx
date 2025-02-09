@@ -7,98 +7,109 @@ import { ScrollControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useState } from "react";
 import TrackView from "./track-view";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion } from "framer-motion";
+import ConcertOrganizer from "@/components/ConcertOrganizer";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Button } from "./ui/button";
 import Chat from "./chat";
 
 export default function TrackContainer({
-	tracks,
-	rippleId,
+  tracks,
+  rippleId,
 }: {
-	tracks: Track[];
-	rippleId: string;
+  tracks: Track[];
+  rippleId: string;
 }) {
-	const [selectedTab, setSelectedTab] = useState<string>("tracks");
 
 	return (
 		<TrackProvider>
-			<main className="h-[calc(100dvh-70px)] w-screen relative overflow-hidden">
-				{selectedTab === "tracks" && (
-					<>
-						<Interface itemsCount={tracks.length} rippleId={rippleId} />
-						<SceneContainer tracks={tracks} />
-					</>
-				)}
-
-				{selectedTab === "community" && <>community</>}
-
-				{selectedTab === "chat" && <Chat />}
-
-				<ContainerTabs setSelectedTab={setSelectedTab} />
-			</main>
+          <TabContainer tracks={tracks} rippleId={rippleId} />
 		</TrackProvider>
 	);
 }
 
-function ContainerTabs({
-	setSelectedTab,
+// new component to use context safely
+function TabContainer({
+  tracks,
+  rippleId,
 }: {
-	setSelectedTab: (tab: string) => void;
+  tracks: Track[];
+  rippleId: string;
 }) {
-	const { setSelectedTrack } = useTrackContext();
+  const { setSelectedTrack } = useTrackContext();
 
-	function handleTabClick(tab: string) {
-		setSelectedTab(tab);
-		setSelectedTrack(null);
-	}
+  const handleTabChange = (value: string) => {
+    setSelectedTrack(null);
+  };
 
-	return (
-		<div className="absolute bottom-0 left-0 z-50 flex gap-2">
-			<Button onClick={() => handleTabClick("tracks")}>tracks</Button>
-			<Button onClick={() => handleTabClick("community")}>community</Button>
-			<Button onClick={() => handleTabClick("chat")}>chat</Button>
-		</div>
-	);
+  return (
+    <main className="h-[calc(100dvh-70px)] w-screen relative overflow-hidden">
+      <Tabs
+        defaultValue="tracks"
+        className="w-full"
+        onValueChange={handleTabChange}
+      >
+        <TabsList className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+          <TabsTrigger value="tracks">tracks</TabsTrigger>
+          <TabsTrigger value="community">community</TabsTrigger>
+          <TabsTrigger value="chat">chat</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tracks" className="h-full">
+          <Interface itemsCount={tracks.length} rippleId={rippleId} />
+          <SceneContainer tracks={tracks} />
+        </TabsContent>
+
+        <TabsContent value="community" className="h-full">
+          <ConcertOrganizer />
+        </TabsContent>
+
+        <TabsContent value="chat" className="h-full">
+          chat
+        </TabsContent>
+      </Tabs>
+    </main>
+  );
 }
 
 const SceneContainer = ({ tracks }: { tracks: Track[] }) => {
-	const { selectedTrack, setSelectedTrack } = useTrackContext();
-	const [key, setKey] = useState(0);
+  const { selectedTrack, setSelectedTrack } = useTrackContext();
+  const [key, setKey] = useState(0);
 
-	return (
-		<div key={key} className="absolute inset-0">
-			<AnimatePresence>
-				{selectedTrack && (
-					<motion.button
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						exit={{ opacity: 0 }}
-						transition={{ duration: 0.8 }}
-						onClick={() => {
-							setSelectedTrack(null);
-							setKey(key + 1);
-						}}
-						className="absolute left-[12%] top-[40%] p-2 rounded-full bg-neutral-900 hover:scale-105 transition-transform duration-200 z-50"
-					>
-						<img src="/icons/return-arrow.svg" className="w-4 h-4" />
-					</motion.button>
-				)}
-			</AnimatePresence>
-			{selectedTrack && <TrackView />}
+  return (
+    <div key={key} className="absolute inset-0">
+      <AnimatePresence>
+        {selectedTrack && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            onClick={() => {
+              setSelectedTrack(null);
+              setKey(key + 1);
+            }}
+            className="absolute left-[12%] top-[40%] p-2 rounded-full bg-neutral-900 hover:scale-105 transition-transform duration-200 z-50"
+          >
+            <img src="/icons/return-arrow.svg" className="w-4 h-4" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+      {selectedTrack && <TrackView />}
 
-			<Canvas>
-				<Suspense fallback={null}>
-					<ScrollControls
-						distance={selectedTrack ? 0 : undefined}
-						eps={0.001}
-						horizontal={false}
-						pages={tracks.length / 2.5}
-						damping={0.01}
-					>
-						<Scene trackList={tracks} />
-					</ScrollControls>
-				</Suspense>
-			</Canvas>
-		</div>
-	);
+      <Canvas>
+        <Suspense fallback={null}>
+          <ScrollControls
+            distance={selectedTrack ? 0 : undefined}
+            eps={0.001}
+            horizontal={false}
+            pages={tracks.length / 2.5}
+            damping={0.01}
+          >
+            <Scene trackList={tracks} />
+          </ScrollControls>
+        </Suspense>
+      </Canvas>
+    </div>
+  );
 };
