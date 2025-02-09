@@ -65,7 +65,7 @@ function TabContainer({
         </TabsContent>
 
         <TabsContent value="chat" className="h-full">
-          chat
+          <Chat />
         </TabsContent>
       </Tabs>
     </main>
