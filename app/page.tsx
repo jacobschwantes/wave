@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { SignIn } from "@/components/auth/signin-button";
 import { SignOut } from "@/components/auth/signout-button";
+import Link from "next/link";
 
 export default async function Home() {
 	const session = await auth();
@@ -18,6 +19,7 @@ export default async function Home() {
 					{session ? (
 						<div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-white">
 							Welcome back!
+							<Link href="/home">Home</Link>
 							<div className="mt-4">
 								<SignOut />
 							</div>
