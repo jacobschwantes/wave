@@ -170,7 +170,7 @@ class NeonClient {
 
 	public async updateUserRippleRecomputeAt() {
 		if (this.#sql && this.#session?.user?.id) {
-			await this.#sql`
+			const response = await this.#sql`
 			UPDATE users
 			SET "recomputeRipplesAt" = ${Math.floor(Date.now() / 1000) + 259200}
 			WHERE "id" = ${this.#session.user.id}
@@ -198,6 +198,7 @@ class NeonClient {
 			throw new Error("Database connection not available");
 		}
 
+		console.log("UPSERTING SONG");
 		try {
 			const result = await this.#sql`
                 INSERT INTO songs (spotify_id)
@@ -207,6 +208,7 @@ class NeonClient {
                     updated_at = NOW()
                 RETURNING id, spotify_id, created_at, updated_at;
             `;
+			console.log("song request", result);
 
 			if (this.#spotifyClient) {
 				this.#spotifyClient.appendDbIdToSongObj(
@@ -338,8 +340,8 @@ class NeonClient {
 		return [...new Set(_genres)];
 	}
 
-	private threshold = 2500;
-	private rippleThreshold = 5000;
+	private threshold = 2000;
+	private rippleThreshold = 4000;
 	private calculateCenter(coords: Coordinate[]) {
 		let x = 0;
 		let y = 0;
@@ -370,24 +372,25 @@ class NeonClient {
 			if (clustered.has(i)) continue;
 
 			let clusterGenres: Genre[] = [genres[i]];
+			let runningCenter = this.calculateCenter([genres[i]]);
 			clustered.add(i);
 
 			for (let j = 0; j < genres.length; j++) {
 				if (i !== j && !clustered.has(j)) {
-					if (this.distance(genres[i], genres[j]) < this.threshold) {
+					if (this.distance(runningCenter, genres[j]) < this.threshold) {
 						clusterGenres.push(genres[j]);
+						runningCenter = this.calculateCenter(clusterGenres);
 						clustered.add(j);
 					}
 				}
 			}
 
-			const { x, y } = this.calculateCenter(clusterGenres);
 			const radius = this.calculateRadius(clusterGenres);
 
 			const newCluster: Cluster = {
 				id: -1,
-				x,
-				y,
+				x: runningCenter.x,
+				y: runningCenter.y,
 				radius,
 				genres: clusterGenres,
 				user_id: Number(this.#session!.user!.id),
@@ -398,6 +401,7 @@ class NeonClient {
 
 		for (let i = 0; i < clusters.length; i++) {
 			const cluster = clusters[i];
+			console.log("CLUSTER", cluster);
 			if (this.#sql) {
 				let response = await this.#sql`
                 INSERT INTO clusters (user_id, x, y, radius)
@@ -434,29 +438,68 @@ class NeonClient {
 		clusters: Cluster[],
 		songs: SongAristsGenres[]
 	): Promise<Ripple[]> {
-		let rippled: number[] = [];
 		const ripples: Ripple[] = [];
+		let rippled = new Set<number>();
 		for (let i = 0; i < clusters.length; i++) {
 			if (!this.#sql) return [];
 			const existingRipples = await this.#sql`
-			SELECT ripple_id FROM ripple_clusters WHERE cluster_id = ${clusters[i].id}
+			WITH ripple_and_clusters AS (
+				-- First get ripples that have the input cluster
+				SELECT DISTINCT r.id as base_ripple_id
+				FROM ripples r
+				JOIN ripple_clusters rc ON r.id = rc.ripple_id
+				WHERE rc.cluster_id = ${clusters[i].id}
+			)
+			SELECT 
+				r.id as ripple_id,
+				r.x as ripple_x,
+				r.y as ripple_y,
+				r.created_at,
+				r.updated_at,
+				-- Cluster data
+				JSON_AGG(
+					JSON_BUILD_OBJECT(
+						'id', c.id,
+						'x', c.x,
+						'y', c.y,
+						'radius', c.radius,
+						'user_id', c.user_id
+					)
+				) as clusters
+			FROM ripple_and_clusters rac
+			JOIN ripples r ON r.id = rac.base_ripple_id
+			JOIN ripple_clusters rc ON r.id = rc.ripple_id
+			JOIN clusters c ON rc.cluster_id = c.id
+			GROUP BY r.id, r.x, r.y, r.created_at, r.updated_at;
 			`;
-			for (const ripple of existingRipples) {
+			for (const rippleData of existingRipples) {
+				const ripple: Ripple = {
+					id: rippleData.ripple_id,
+					x: rippleData.x,
+					y: rippleData.y,
+					radius: rippleData.radius,
+					clusters: rippleData.clusters, // You'll need to populate this from cluster_ids
+					songs: [], // If you need songs, we should add a songs join
+					artists: [], // If you need artists, we should add an artists join
+				};
 				if (
 					this.distance(clusters[i], ripple as Coordinate) <
 					this.rippleThreshold
 				) {
 					ripple.clusters.push(clusters[i]);
 					ripple.radius = this.calculateRadius(ripple.clusters);
-					ripple.x = this.calculateCenter(ripple.clusters).x;
+					const { x, y } = this.calculateCenter(ripple.clusters);
+					ripple.x = x;
+					ripple.y = y;
 					let response = await this.#sql`
 					UPDATE ripples
 					SET
 						radius = ${ripple.radius},
 						x = ${ripple.x},
+						y = ${ripple.y},
 						updated_at = NOW()
 					WHERE id = ${ripple.id}
-					RETURNING id, ripple_id, radius, x;
+					RETURNING id, ripple_id, radius, x, y;
 					`;
 
 					response = await this.#sql`
@@ -465,64 +508,137 @@ class NeonClient {
                     RETURNING ripple_id, cluster_id;
                     `;
 
-					rippled.push(i);
-					// only add the cluster to one ripple
-					break;
+					const genres: string[] = [];
+
+					for (const cluster of ripple.clusters) {
+						if (!this.#sql) return [];
+						const result = await this.#sql`
+								SELECT genre_name as "genreName" FROM cluster_genres WHERE "cluster_id" = ${cluster.id}
+							`;
+
+						for (const record of result) {
+							let genre = record.genreName;
+							genres.push(genre);
+						}
+					}
+
+					const _songs = [];
+					const _artists = [];
+					for (let z = 0; z < songs.length; z++) {
+						for (let j = 0; j < songs[z].artists.length; j++) {
+							const artist = songs[z].artists[j];
+							for (let k = 0; k < artist.genres.length; k++) {
+								const genre = artist.genres[k];
+								if (genres.includes(genre.name)) {
+									_songs.push(songs[z]);
+									_artists.push(artist);
+								}
+							}
+						}
+					}
+
+					for (let j = 0; j < _songs.length; j++) {
+						let response = await this.#sql`
+						INSERT INTO ripple_songs (song_id, ripple_id)
+						VALUES (${_songs[j].id}, ${ripples[i].id})
+						ON CONFLICT (song_id, ripple_id)
+						DO UPDATE SET
+							updated_at = NOW()
+						RETURNING song_id, ripple_id;
+						`;
+					}
+
+					for (let j = 0; j < _artists.length; j++) {
+						let response = await this.#sql`
+						INSERT INTO ripple_artists (artist_id, ripple_id)
+						VALUES (${_artists[j].id}, ${ripples[i].id})
+						ON CONFLICT (artist_id, ripple_id)
+						DO UPDATE SET
+							updated_at = NOW()
+						RETURNING artist_id, ripple_id;
+						`;
+					}
+
+					if (!rippled.has(i)) {
+						rippled.add(i);
+					}
 				}
 			}
-			if (rippled.includes(i)) continue;
 
-			let createdRipple: Ripple | null = null;
-			// for (let j = i + 1; j < clusters.length; j++) {
-			// 	if (createdRipple) {
-			// 		if (
-			// 			this.distance(
-			// 				clusters[j] as Coordinate,
-			// 				createdRipple as Coordinate
-			// 			) +
-			// 				createdRipple.radius <
-			// 			this.threshold
-			// 		) {
-			// 			createdRipple.clusters.push(clusters[j]);
-			// 			// rippled.push(j)
-			// 		}
-			// 	} else if (this.distance(clusters[i], clusters[j]) < this.threshold) {
-			// 		// this new cluster needs to be an object in the db
-			// 		// rippled.push(j)
-			// 		createdRipple = {
-			// 			id: -1,
-			// 			x: -1,
-			// 			y: -1,
-			// 			radius: -1,
-			// 			clusters: [clusters[i], clusters[j]],
-			// 			songs: [],
-			// 			artists: [],
-			// 		};
-			// 	}
-			// }
-			if (!createdRipple) {
-				// add the cluster to the user
-				createdRipple = {
+			if (rippled.has(i)) continue;
+			let innerRippled = new Set<number>();
+			for (let j = i; j < clusters.length; j++) {
+				if (innerRippled.has(j)) continue;
+
+				let rippleClusters: Cluster[] = [clusters[j]];
+				let runningCenter = this.calculateCenter(rippleClusters);
+				innerRippled.add(j);
+
+				for (let k = 0; k < clusters.length; k++) {
+					if (j !== k && !innerRippled.has(k)) {
+						if (
+							this.distance(runningCenter, clusters[j]) < this.rippleThreshold
+						) {
+							rippleClusters.push(clusters[k]);
+							runningCenter = this.calculateCenter(rippleClusters);
+							innerRippled.add(k);
+						}
+					}
+				}
+
+				const radius = this.calculateRadius(rippleClusters);
+
+				const newRipple: Ripple = {
 					id: -1,
-					x: -1,
-					y: -1,
-					radius: -1,
-					clusters: [clusters[i]],
+					x: runningCenter.x,
+					y: runningCenter.y,
+					radius: radius,
+					clusters: rippleClusters,
 					songs: [],
 					artists: [],
 				};
+
+				ripples.push(JSON.parse(JSON.stringify(newRipple)));
 			}
-			const { x, y } = this.calculateCenter(createdRipple.clusters);
-			const radius = this.calculateRadius(createdRipple.clusters);
-			createdRipple.x = x;
-			createdRipple.y = y;
-			createdRipple.radius = radius;
-			ripples.push(JSON.parse(JSON.stringify(createdRipple)));
 		}
 
+		let combinedRipples: Ripple[] = [];
+		let processed = new Set<number>();
+
 		for (let i = 0; i < ripples.length; i++) {
+			if (processed.has(i)) continue;
+
+			let currentRipple = JSON.parse(JSON.stringify(ripples[i]));
+			processed.add(i);
+
+			// Look for other ripples to combine with
+			for (let j = 0; j < ripples.length; j++) {
+				if (i === j || processed.has(j)) continue;
+
+				// Check if ripples are close enough to combine
+				if (this.distance(currentRipple, ripples[j]) < this.rippleThreshold) {
+					// Combine clusters from both ripples
+					currentRipple.clusters = [
+						...currentRipple.clusters,
+						...ripples[j].clusters,
+					];
+
+					// Recalculate center and radius for combined ripple
+					const { x, y } = this.calculateCenter(currentRipple.clusters);
+					currentRipple.x = x;
+					currentRipple.y = y;
+					currentRipple.radius = this.calculateRadius(currentRipple.clusters);
+
+					processed.add(j);
+				}
+			}
+
+			combinedRipples.push(currentRipple);
+		}
+
+		for (let i = 0; i < combinedRipples.length; i++) {
 			if (!this.#sql) return [];
-			const ripple = ripples[i];
+			const ripple = combinedRipples[i];
 			const genres: string[] = [];
 
 			for (const cluster of ripple.clusters) {
@@ -560,22 +676,23 @@ class NeonClient {
                 updated_at = NOW()
             RETURNING id, x, y, radius;
             `;
-			ripples[i].id = response[0].id;
+			combinedRipples[i].id = response[0].id;
 
 			for (let j = 0; j < _songs.length; j++) {
 				let response = await this.#sql`
-                UPDATE songs
-                SET ripple_id = ${ripples[i].id},
-                    updated_at = NOW()
-                WHERE id = ${_songs[j].id}
-                RETURNING id, ripple_id;
+				INSERT INTO ripple_songs (song_id, ripple_id)
+				VALUES (${_songs[j].id}, ${combinedRipples[i].id})
+				ON CONFLICT (song_id, ripple_id)
+				DO UPDATE SET
+					updated_at = NOW()
+				RETURNING song_id, ripple_id;
                 `;
 			}
 
 			for (let j = 0; j < _artists.length; j++) {
 				let response = await this.#sql`
                 INSERT INTO ripple_artists (artist_id, ripple_id)
-                VALUES (${_artists[j].id}, ${ripples[i].id})
+                VALUES (${_artists[j].id}, ${combinedRipples[i].id})
                 ON CONFLICT (artist_id, ripple_id)
                 DO UPDATE SET
                     updated_at = NOW()
@@ -584,9 +701,9 @@ class NeonClient {
 			}
 		}
 
-		for (let i = 0; i < ripples.length; i++) {
-			const ripple = ripples[i];
-			for (let j = 0; j < ripples[i].clusters.length; j++) {
+		for (let i = 0; i < combinedRipples.length; i++) {
+			const ripple = combinedRipples[i];
+			for (let j = 0; j < combinedRipples[i].clusters.length; j++) {
 				if (this.#sql) {
 					let response = await this.#sql`
                     INSERT INTO ripple_clusters (ripple_id, cluster_id)
@@ -597,18 +714,18 @@ class NeonClient {
 			}
 		}
 
-		for (let i = 0; i < ripples.length; i++) {
+		for (let i = 0; i < combinedRipples.length; i++) {
 			if (this.#sql) {
 				let response = await this.#sql`
 				INSERT INTO ripple_users (ripple_id, user_id)
-				VALUES (${ripples[i].id}, ${this.#session!.user!.id})
+				VALUES (${combinedRipples[i].id}, ${this.#session!.user!.id})
 				ON CONFLICT (ripple_id, user_id)
 				DO UPDATE SET updated_at = NOW();
 				`;
 			}
 		}
 
-		return ripples;
+		return combinedRipples;
 	}
 
 	private distance(coord1: Coordinate, coord2: Coordinate) {
@@ -652,7 +769,7 @@ class NeonClient {
 			// CREATING SONG GENRES
 			song.artists.forEach((artist) => {
 				artist.genres.forEach(async (genre) => {
-					if (this.#sql && genre.x !== -1 && genre.y !== -1) {
+					if (this.#sql && genre.x !== -1 && genre.y !== -1 && genre.name) {
 						let response = await this.#sql`
                         INSERT INTO song_genres (song_id, genre_name)
                         VALUES (${song.id}, ${genre.name})
@@ -698,11 +815,14 @@ class NeonClient {
 		const spotifyIds = [];
 		if (this.#sql) {
 			const result = await this.#sql`
-				SELECT spotify_id as "spotifyId" FROM songs WHERE "ripple_id" = ${rippleId}
+				SELECT DISTINCT s.spotify_id
+				FROM songs s
+				JOIN ripple_songs rs ON s.id = rs.song_id
+				WHERE rs.ripple_id = ${rippleId};
 			`;
 
 			for (const record of result) {
-				let spotifyId = record.spotifyId;
+				let spotifyId = record.spotify_id;
 				spotifyIds.push(spotifyId);
 			}
 		}

@@ -1,4 +1,5 @@
 import NeonClient, { Artist, Song } from "../database/NeonClient";
+import { getGenresByArtistName } from "../externalAPIs/LastFm";
 
 export type SongAristsGenres = {
 	id: number;
@@ -23,8 +24,8 @@ export type ClientSong = {
 	albumCover: string;
 	durationMs: number;
 	previewUrl: string;
-	spotifyUrl: string; 
-}
+	spotifyUrl: string;
+};
 
 class SpotifyClient {
 	private static instance: SpotifyClient | null = null;
@@ -82,7 +83,6 @@ class SpotifyClient {
 			const response = await fetch(url, payload);
 
 			if (!response.ok) {
-				console.log("Spotify Request Failed");
 				return;
 			}
 
@@ -123,14 +123,16 @@ class SpotifyClient {
 		const response = await fetch(this.SPOTIFY_BASE_URL + url + queryString, {
 			headers: {
 				Authorization: `Bearer ${await this.getAccessToken()}`,
-				'Content-Type': 'application/json'
+				"Content-Type": "application/json",
 			},
-			...options
+			...options,
 		});
 
 		if (!response.ok) {
 			const errorData = await response.json().catch(() => ({}));
-			throw new Error(`Spotify API error ${response.status}: ${JSON.stringify(errorData)}`);
+			throw new Error(
+				`Spotify API error ${response.status}: ${JSON.stringify(errorData)}`
+			);
 		}
 
 		// handle empty response (like from PUT requests)
@@ -144,22 +146,24 @@ class SpotifyClient {
 			title: spotifyTrack.name,
 			artist: spotifyTrack.artists[0].name,
 			album: spotifyTrack.album.name,
-			albumCover: spotifyTrack.album.images.length > 0 ? spotifyTrack.album.images[0].url : null,
+			albumCover:
+				spotifyTrack.album.images.length > 0
+					? spotifyTrack.album.images[0].url
+					: null,
 			durationMs: spotifyTrack.duration_ms,
 			previewUrl: spotifyTrack.preview_url,
-			spotifyUrl: spotifyTrack.external_urls.spotify
+			spotifyUrl: spotifyTrack.external_urls.spotify,
 		};
 	}
 
 	async getBatchSongs(ids: string[]): Promise<ClientSong[]> {
 		if (ids.length === 0) return [];
 		const params = { ids: ids.join(","), market: "US" };
-		const response = await this.#makeSpotifyAPIRequest(
-			"tracks",
-			params
-		);
+		const response = await this.#makeSpotifyAPIRequest("tracks", params);
 
-		const songs: ClientSong[] = response.tracks.map((track: any) => this.mapSpotifyTrackToCustomSong(track));
+		const songs: ClientSong[] = response.tracks.map((track: any) =>
+			this.mapSpotifyTrackToCustomSong(track)
+		);
 		return songs;
 	}
 
@@ -167,11 +171,11 @@ class SpotifyClient {
 		if (!this.#neonClient) return new Map();
 		const ripples = await this.#neonClient.fetchRipples();
 
-		const rippleToIds = await this.#neonClient.fetchSpotifySongIds(ripples)
+		const rippleToIds = await this.#neonClient.fetchSpotifySongIds(ripples);
 		const rippleToClientSongs = new Map<Number, ClientSong[]>();
 		let i = 0;
 		for (const spotifyIds of rippleToIds.values()) {
-			if (spotifyIds.length === 0) continue
+			if (spotifyIds.length === 0) continue;
 			const songs = await this.getBatchSongs(spotifyIds);
 			const keysArray = Array.from(rippleToIds.keys()); // Convert iterator to array
 			rippleToClientSongs.set(keysArray[i], songs);
@@ -251,8 +255,8 @@ class SpotifyClient {
 					if (genre.name === name) {
 						return { ...genre, id: id, x: x, y: y };
 					}
-					return genre
-				})
+					return genre;
+				});
 				return { ...artist };
 			});
 			return { ...song };
@@ -284,23 +288,34 @@ class SpotifyClient {
 
 		const response = await this.#makeSpotifyAPIRequest("artists", params);
 
-		response.artists.forEach((artist: any) => {
-			this.#userRecentSongs = this.#userRecentSongs.map((song) => {
-				song.artists = song.artists.map((_artist) => {
-					if (_artist.spotify_id === artist.id) {
-						const genres = artist.genres.map((genre: any) => {return { "name": genre, "id": -1, "x": -1, "y": -1 }})
-						return { ..._artist, genres: genres }; // Create a new object with the updated id
-					} else {
+		let genreSet = new Set<string>(); // Store only unique genre names
+
+		this.#userRecentSongs = await Promise.all(
+			this.#userRecentSongs.map(async (song) => {
+				song.artists = await Promise.all(
+					song.artists.map(async (_artist) => {
+						const matchingArtist = response.artists.find(
+							(artist: any) => artist.id === _artist.spotify_id
+						);
+						if (matchingArtist) {
+							let _genres = matchingArtist.genres.map((genre: any) => genre); // Extract only genre names
+							if (_genres.length === 0) {
+								_genres = await getGenresByArtistName(matchingArtist.name);
+							}
+							_genres.forEach((genre: string) => genreSet.add(genre)); // Store only unique genre names
+							return {
+								..._artist,
+								genres: _genres.map((name: string) => ({ name, id: -1, x: -1, y: -1 })),
+							};
+						}
 						return _artist;
-					}
-				});
-				return { ...song };
-			});
-		});
+					})
+				);
+				return song;
+			})
+		);
 
-		const genres: string[] = response.artists.flatMap((artist: any) => artist.genres);
-
-		return [...new Set(genres)]
+		return Array.from(genreSet);
 	}
 
 	public async computeClustersAndIdentifyRipples() {
@@ -327,39 +342,43 @@ class SpotifyClient {
 			// search for artist
 			const params = {
 				q: artistName,
-				type: 'artist',
-				limit: '1'
+				type: "artist",
+				limit: "1",
 			};
-			
-			const response = await this.#makeSpotifyAPIRequest('search', params);
-			
+
+			const response = await this.#makeSpotifyAPIRequest("search", params);
+
 			if (response.artists.items.length > 0) {
 				const artist = response.artists.items[0];
 				// get the highest quality image available
 				return artist.images[0]?.url || null;
 			}
-			
+
 			return null;
 		} catch (error) {
-			console.error('Failed to fetch artist image:', error);
+			console.error("Failed to fetch artist image:", error);
 			return null;
 		}
 	}
 
 	async saveTrackToLibrary(trackId: string) {
-		if (!trackId) throw new Error('trackId is required')
-		
+		if (!trackId) throw new Error("trackId is required");
+
 		try {
-			const response = await this.#makeSpotifyAPIRequest(`me/tracks`, {}, {
-				method: 'PUT',
-				body: JSON.stringify({ ids: [trackId] })
-			})
-			
+			const response = await this.#makeSpotifyAPIRequest(
+				`me/tracks`,
+				{},
+				{
+					method: "PUT",
+					body: JSON.stringify({ ids: [trackId] }),
+				}
+			);
+
 			// spotify returns 200 with empty response for successful save
-			return { success: true }
+			return { success: true };
 		} catch (error) {
-			console.error('Spotify save track error:', error)
-			throw error
+			console.error("Spotify save track error:", error);
+			throw error;
 		}
 	}
 }
