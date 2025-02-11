@@ -338,8 +338,8 @@ class NeonClient {
 		return [...new Set(_genres)];
 	}
 
-	private threshold = 1000;
-	private rippleThreshold = 4000;
+	private threshold = 1250;
+	private rippleThreshold = 3750;
 	private calculateCenter(coords: Coordinate[]) {
 		let x = 0;
 		let y = 0;
@@ -363,38 +363,38 @@ class NeonClient {
 	}
 
 	async createClusters(genres: Genre[]): Promise<Cluster[]> {
-		let clustered = new Set<number>();
+		const clustered = new Set<number>();
 		const clusters: Cluster[] = [];
 
 		for (let i = 0; i < genres.length; i++) {
 			if (clustered.has(i)) continue;
 
-			let clusterGenres: Genre[] = [genres[i]];
-			let runningCenter = this.calculateCenter([genres[i]]);
+			const clusterGenres: Genre[] = [genres[i]];
+			const runningCluster: Cluster = {
+				id: -1,
+				x: genres[i].x,
+				y: genres[i].y,
+				radius: 0,
+				genres: [genres[i]],
+				user_id: Number(this.#session!.user!.id),
+			};
 			clustered.add(i);
 
-			for (let j = 0; j < genres.length; j++) {
-				if (i !== j && !clustered.has(j)) {
-					if (this.distance(runningCenter, genres[j]) < this.threshold) {
-						clusterGenres.push(genres[j]);
-						runningCenter = this.calculateCenter(clusterGenres);
-						clustered.add(j);
-					}
+			for (let j = i + 1; j < genres.length; j++) {
+				if (
+					this.distance(
+						this.calculateCenter(runningCluster.genres),
+						genres[j]
+					) +
+						this.calculateRadius(runningCluster.genres) <
+					this.threshold
+				) {
+					clusterGenres.push(genres[j]);
+					clustered.add(j);
 				}
 			}
 
-			const radius = this.calculateRadius(clusterGenres);
-
-			const newCluster: Cluster = {
-				id: -1,
-				x: runningCenter.x,
-				y: runningCenter.y,
-				radius,
-				genres: clusterGenres,
-				user_id: Number(this.#session!.user!.id),
-			};
-
-			clusters.push(newCluster);
+			clusters.push(runningCluster);
 		}
 
 		for (let i = 0; i < clusters.length; i++) {
@@ -481,7 +481,9 @@ class NeonClient {
 					artists: [], // If you need artists, we should add an artists join
 				};
 				if (
-					this.distance(clusters[i], ripple as Coordinate) <
+					this.distance(clusters[i], ripple as Coordinate) +
+						ripple.radius +
+						clusters[i].radius <=
 					this.rippleThreshold
 				) {
 					ripple.clusters.push(clusters[i]);
@@ -637,7 +639,7 @@ class NeonClient {
 		for (let i = 0; i < combinedRipples.length; i++) {
 			if (!this.#sql) return [];
 			const ripple = combinedRipples[i];
-			console.log("RIPPLE", ripple)
+			console.log("RIPPLE", ripple);
 			const genres: string[] = [];
 
 			for (const cluster of ripple.clusters) {
@@ -652,20 +654,25 @@ class NeonClient {
 				}
 			}
 
-			const _songs = [];
-			const _artists = [];
+			const _songsMap = new Map<number, SongAristsGenres>(); // Map to ensure unique songs
+			const _artists = []; // To collect matching artists
+
 			for (let z = 0; z < songs.length; z++) {
 				for (let j = 0; j < songs[z].artists.length; j++) {
 					const artist = songs[z].artists[j];
 					for (let k = 0; k < artist.genres.length; k++) {
 						const genre = artist.genres[k];
+
 						if (genres.includes(genre.name)) {
-							_songs.push(songs[z]);
+							_songsMap.set(songs[z].id, songs[z]); // Store unique song by id
 							_artists.push(artist);
 						}
 					}
 				}
 			}
+
+			// Convert Map values to an array (unique list of songs)
+			const _songs: SongAristsGenres[] = Array.from(_songsMap.values());
 
 			let response = await this.#sql`
             INSERT INTO ripples (x, y, radius)
@@ -704,11 +711,18 @@ class NeonClient {
 			const ripple = combinedRipples[i];
 			for (let j = 0; j < combinedRipples[i].clusters.length; j++) {
 				if (this.#sql) {
-					let response = await this.#sql`
-                    INSERT INTO ripple_clusters (ripple_id, cluster_id)
-                    VALUES (${ripple.id}, ${ripple.clusters[j].id})
-                    RETURNING ripple_id, cluster_id;
-                    `;
+					const clusterExists = await this.#sql`
+						SELECT 1 FROM clusters WHERE id = ${ripple.clusters[j].id} LIMIT 1;
+					`;
+
+					if (clusterExists.length > 0) {
+						// Only insert if cluster exists
+						let response = await this.#sql`
+						INSERT INTO ripple_clusters (ripple_id, cluster_id)
+						VALUES (${ripple.id}, ${ripple.clusters[j].id})
+						RETURNING ripple_id, cluster_id;
+						`;
+					}
 				}
 			}
 		}
