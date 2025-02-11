@@ -338,8 +338,8 @@ class NeonClient {
 		return [...new Set(_genres)];
 	}
 
-	private threshold = 1000;
-	private rippleThreshold = 3000;
+	private threshold = 500;
+	private rippleThreshold = 1500;
 	private calculateCenter(coords: Coordinate[]) {
 		let x = 0;
 		let y = 0;
@@ -389,17 +389,17 @@ class NeonClient {
 						this.calculateRadius(runningCluster.genres) <
 					this.threshold
 				) {
-					clusterGenres.push(genres[j]);
+					runningCluster.genres.push(genres[j]);
 					clustered.add(j);
 				}
 			}
 
+			runningCluster.radius = this.calculateRadius(runningCluster.genres);
 			clusters.push(runningCluster);
 		}
 
 		for (let i = 0; i < clusters.length; i++) {
 			const cluster = clusters[i];
-			console.log("CLUSTER", cluster);
 			if (this.#sql) {
 				let response = await this.#sql`
                 INSERT INTO clusters (user_id, x, y, radius)
@@ -481,8 +481,8 @@ class NeonClient {
 					artists: [], // If you need artists, we should add an artists join
 				};
 				if (
-					this.distance(clusters[i], ripple as Coordinate) +
-						ripple.radius +
+					this.distance(clusters[i], ripple as Coordinate) -
+						ripple.radius -
 						clusters[i].radius <=
 					this.rippleThreshold
 				) {
@@ -574,10 +574,12 @@ class NeonClient {
 				let runningCenter = this.calculateCenter(rippleClusters);
 				innerRippled.add(j);
 
-				for (let k = 0; k < clusters.length; k++) {
+				for (let k = j; k < clusters.length; k++) {
 					if (j !== k && !innerRippled.has(k)) {
 						if (
-							this.distance(runningCenter, clusters[j]) < this.rippleThreshold
+							this.distance(runningCenter, clusters[k]) -
+								clusters[k].radius <=
+							this.rippleThreshold
 						) {
 							rippleClusters.push(clusters[k]);
 							runningCenter = this.calculateCenter(rippleClusters);
@@ -614,9 +616,12 @@ class NeonClient {
 			// Look for other ripples to combine with
 			for (let j = 0; j < ripples.length; j++) {
 				if (i === j || processed.has(j)) continue;
-
 				// Check if ripples are close enough to combine
-				if (this.distance(currentRipple, ripples[j]) < this.rippleThreshold) {
+				if (
+					this.distance(currentRipple, ripples[j]) -
+						ripples[j].radius - currentRipple.radius <=
+					this.rippleThreshold
+				) {
 					// Combine clusters from both ripples
 					currentRipple.clusters = [
 						...currentRipple.clusters,
@@ -639,7 +644,6 @@ class NeonClient {
 		for (let i = 0; i < combinedRipples.length; i++) {
 			if (!this.#sql) return [];
 			const ripple = combinedRipples[i];
-			console.log("RIPPLE", ripple);
 			const genres: string[] = [];
 
 			for (const cluster of ripple.clusters) {
@@ -808,10 +812,10 @@ class NeonClient {
 
 	public async fetchRipples(): Promise<number[]> {
 		const ripples = [];
-		if (this.#sql) {
+		if (this.#sql && this.#session && this.#session.user) {
 			const result = await this.#sql`
 				SELECT ripple_id as "rippleId" FROM ripple_users WHERE "user_id" = ${
-					this.#session!.user!.id
+					this.#session.user.id
 				}
 			`;
 
