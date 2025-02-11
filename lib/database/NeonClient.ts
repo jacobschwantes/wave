@@ -198,7 +198,6 @@ class NeonClient {
 			throw new Error("Database connection not available");
 		}
 
-		console.log("UPSERTING SONG");
 		try {
 			const result = await this.#sql`
                 INSERT INTO songs (spotify_id)
@@ -208,7 +207,6 @@ class NeonClient {
                     updated_at = NOW()
                 RETURNING id, spotify_id, created_at, updated_at;
             `;
-			console.log("song request", result);
 
 			if (this.#spotifyClient) {
 				this.#spotifyClient.appendDbIdToSongObj(
@@ -340,7 +338,7 @@ class NeonClient {
 		return [...new Set(_genres)];
 	}
 
-	private threshold = 2000;
+	private threshold = 1000;
 	private rippleThreshold = 4000;
 	private calculateCenter(coords: Coordinate[]) {
 		let x = 0;
@@ -639,6 +637,7 @@ class NeonClient {
 		for (let i = 0; i < combinedRipples.length; i++) {
 			if (!this.#sql) return [];
 			const ripple = combinedRipples[i];
+			console.log("RIPPLE", ripple)
 			const genres: string[] = [];
 
 			for (const cluster of ripple.clusters) {
