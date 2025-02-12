@@ -1,98 +1,15 @@
 import { auth } from "@/auth";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import { Session } from "next-auth";
-import { DateTime } from "next-auth/providers/kakao";
 import SpotifyClient, {
-	ClientSong,
 	SongAristsGenres,
 } from "../spotify/SpotifyClient";
-import fs from "fs";
-import path from "path";
-import csv from "fast-csv";
 import { genre_coords } from "./output";
-
-export type SpotifyTokens = {
-	accessToken: string;
-	refreshToken: string;
-	expiresAt: number;
-};
-
-export type Comment = {
-	id: number;
-	text: string;
-	created_at: string;
-	updated_at: string;
-	user: {
-		id: number;
-		name: string;
-		email: string;
-		image: string;
-	};
-};
-
-export type User = {
-	id: number;
-	name: string;
-	email: string;
-	image: string;
-};
-
-export type Genre = {
-	id: number;
-	name: string;
-	x: number;
-	y: number;
-	created_at: DateTime;
-	updated_at: DateTime;
-};
-
-export type Artist = {
-	id: number;
-	genres: Genre[];
-	spotify_id: string;
-	name: string;
-	created_at: DateTime;
-	updated_at: DateTime;
-};
-
-export type Song = {
-	id: number;
-	genres: Genre[];
-	spotify_id: string;
-	ripple_id: number;
-	created_at: DateTime;
-	updated_at: DateTime;
-};
-
-export type Cluster = {
-	id: number;
-	x: number;
-	y: number;
-	radius: number;
-	genres: Genre[];
-	user_id: number;
-};
-
-interface Coordinate {
-	x: number;
-	y: number;
-}
-
-export type Ripple = {
-	id: number;
-	x: number;
-	y: number;
-	radius: number;
-	songs: ClientSong[];
-	clusters: Cluster[];
-	artists: Artist[];
-};
-
-export type GenreCoordinate = {
-	genre: string;
-	x: number;
-	y: number;
-};
+import {
+	SpotifyTokens, Genre, Artist, Song,
+	Cluster, Ripple, GenreCoordinate, Comment,
+	Coordinate
+} from "./types";
 
 class NeonClient {
 	private static instance: NeonClient | null = null;
@@ -181,9 +98,8 @@ class NeonClient {
 	public async fetchRecomputeRipplesTime() {
 		if (this.#sql && this.#session?.user?.id) {
 			const result = await this.#sql`
-			SELECT "recomputeRipplesAt" as "recomputeRipplesAt" FROM users WHERE "id" = ${
-				this.#session.user.id
-			}
+			SELECT "recomputeRipplesAt" as "recomputeRipplesAt" FROM users WHERE "id" = ${this.#session.user.id
+				}
 			`;
 			if (result && result[0] !== null) {
 				return result[0].recomputeRipplesAt;
@@ -369,24 +285,25 @@ class NeonClient {
 		for (let i = 0; i < genres.length; i++) {
 			if (clustered.has(i)) continue;
 
-			const clusterGenres: Genre[] = [genres[i]];
+			// init cluster with empty coords
 			const runningCluster: Cluster = {
 				id: -1,
-				x: genres[i].x,
-				y: genres[i].y,
+				x: 0,  // will be calculated after all genres added
+				y: 0,
 				radius: 0,
 				genres: [genres[i]],
 				user_id: Number(this.#session!.user!.id),
 			};
 			clustered.add(i);
 
+			// add nearby genres to cluster
 			for (let j = i + 1; j < genres.length; j++) {
 				if (
 					this.distance(
 						this.calculateCenter(runningCluster.genres),
 						genres[j]
 					) +
-						this.calculateRadius(runningCluster.genres) <
+					this.calculateRadius(runningCluster.genres) <
 					this.threshold
 				) {
 					runningCluster.genres.push(genres[j]);
@@ -394,6 +311,10 @@ class NeonClient {
 				}
 			}
 
+			// calculate final position and radius
+			const center = this.calculateCenter(runningCluster.genres);
+			runningCluster.x = center.x;
+			runningCluster.y = center.y;
 			runningCluster.radius = this.calculateRadius(runningCluster.genres);
 			clusters.push(runningCluster);
 		}
@@ -432,315 +353,356 @@ class NeonClient {
 		return clusters;
 	}
 
-	async createRipples(
-		clusters: Cluster[],
-		songs: SongAristsGenres[]
-	): Promise<Ripple[]> {
-		const ripples: Ripple[] = [];
-		let rippled = new Set<number>();
-		for (let i = 0; i < clusters.length; i++) {
-			if (!this.#sql) return [];
-			const existingRipples = await this.#sql`
-			WITH ripple_and_clusters AS (
-				-- First get ripples that have the input cluster
-				SELECT DISTINCT r.id as base_ripple_id
-				FROM ripples r
-				JOIN ripple_clusters rc ON r.id = rc.ripple_id
-				WHERE rc.cluster_id = ${clusters[i].id}
+	// helper methods
+	private async findNearbyRipples(cluster: Cluster): Promise<any[]> {
+		if (!this.#sql) return [];
+		// spatial query to find nearby ripples
+		return await this.#sql`
+		WITH nearby_ripples AS (
+			SELECT DISTINCT r.id, r.x, r.y, r.radius
+			FROM ripples r
+			WHERE ST_DWithin(
+				ST_MakePoint(r.x, r.y)::geography,
+				ST_MakePoint(${cluster.x}, ${cluster.y})::geography,
+				${this.rippleThreshold}
 			)
-			SELECT 
-				r.id as ripple_id,
-				r.x as ripple_x,
-				r.y as ripple_y,
-				r.created_at,
-				r.updated_at,
-				-- Cluster data
-				JSON_AGG(
-					JSON_BUILD_OBJECT(
-						'id', c.id,
-						'x', c.x,
-						'y', c.y,
-						'radius', c.radius,
-						'user_id', c.user_id
-					)
-				) as clusters
-			FROM ripple_and_clusters rac
-			JOIN ripples r ON r.id = rac.base_ripple_id
-			JOIN ripple_clusters rc ON r.id = rc.ripple_id
-			JOIN clusters c ON rc.cluster_id = c.id
-			GROUP BY r.id, r.x, r.y, r.created_at, r.updated_at;
-			`;
-			for (const rippleData of existingRipples) {
-				const ripple: Ripple = {
-					id: rippleData.ripple_id,
-					x: rippleData.x,
-					y: rippleData.y,
-					radius: rippleData.radius,
-					clusters: rippleData.clusters, // You'll need to populate this from cluster_ids
-					songs: [], // If you need songs, we should add a songs join
-					artists: [], // If you need artists, we should add an artists join
-				};
-				if (
-					this.distance(clusters[i], ripple as Coordinate) -
-						ripple.radius -
-						clusters[i].radius <=
-					this.rippleThreshold
-				) {
-					ripple.clusters.push(clusters[i]);
-					ripple.radius = this.calculateRadius(ripple.clusters);
-					const { x, y } = this.calculateCenter(ripple.clusters);
-					ripple.x = x;
-					ripple.y = y;
-					let response = await this.#sql`
-					UPDATE ripples
-					SET
-						radius = ${ripple.radius},
-						x = ${ripple.x},
-						y = ${ripple.y},
-						updated_at = NOW()
-					WHERE id = ${ripple.id}
-					RETURNING id, ripple_id, radius, x, y;
-					`;
+		)
+		SELECT 
+			r.id as ripple_id,
+			r.x as ripple_x,
+			r.y as ripple_y,
+			r.created_at,
+			r.updated_at,
+			JSON_AGG(
+				JSON_BUILD_OBJECT(
+					'id', c.id,
+					'x', c.x,
+					'y', c.y,
+					'radius', c.radius,
+					'user_id', c.user_id
+				)
+			) as clusters
+		FROM nearby_ripples nr
+		JOIN ripples r ON r.id = nr.id
+		JOIN ripple_clusters rc ON r.id = rc.ripple_id
+		JOIN clusters c ON rc.cluster_id = c.id
+		GROUP BY r.id, r.x, r.y, r.created_at, r.updated_at;
+		`;
+	}
 
-					response = await this.#sql`
-                    INSERT INTO ripple_clusters (ripple_id, cluster_id)
-                    VALUES (${ripple.id}, ${clusters[i].id})
-                    RETURNING ripple_id, cluster_id;
-                    `;
+	private async getGenresForCluster(clusterId: number): Promise<string[]> {
+		if (!this.#sql) return [];
+		const result = await this.#sql`
+			SELECT genre_name as "genreName" 
+			FROM cluster_genres 
+			WHERE "cluster_id" = ${clusterId}
+		`;
+		return result.map(r => r.genreName);
+	}
 
-					const genres: string[] = [];
+	private async createRippleAssociations(ripple: Ripple, songs: SongAristsGenres[]) {
+		console.time('createRippleAssociations');
+		if (!this.#sql) return;
 
-					for (const cluster of ripple.clusters) {
-						if (!this.#sql) return [];
-						const result = await this.#sql`
-								SELECT genre_name as "genreName" FROM cluster_genres WHERE "cluster_id" = ${cluster.id}
-							`;
+		console.time('getGenres');
+		const genres: string[] = [];
+		for (const cluster of ripple.clusters) {
+			genres.push(...await this.getGenresForCluster(cluster.id));
+		}
+		console.timeEnd('getGenres');
 
-						for (const record of result) {
-							let genre = record.genreName;
-							genres.push(genre);
-						}
-					}
-
-					const _songs = [];
-					const _artists = [];
-					for (let z = 0; z < songs.length; z++) {
-						for (let j = 0; j < songs[z].artists.length; j++) {
-							const artist = songs[z].artists[j];
-							for (let k = 0; k < artist.genres.length; k++) {
-								const genre = artist.genres[k];
-								if (genres.includes(genre.name)) {
-									_songs.push(songs[z]);
-									_artists.push(artist);
-								}
-							}
-						}
-					}
-
-					for (let j = 0; j < _songs.length; j++) {
-						let response = await this.#sql`
-						INSERT INTO ripple_songs (song_id, ripple_id)
-						VALUES (${_songs[j].id}, ${ripples[i].id})
-						ON CONFLICT (song_id, ripple_id)
-						DO UPDATE SET
-							updated_at = NOW()
-						RETURNING song_id, ripple_id;
-						`;
-					}
-
-					for (let j = 0; j < _artists.length; j++) {
-						let response = await this.#sql`
-						INSERT INTO ripple_artists (artist_id, ripple_id)
-						VALUES (${_artists[j].id}, ${ripples[i].id})
-						ON CONFLICT (artist_id, ripple_id)
-						DO UPDATE SET
-							updated_at = NOW()
-						RETURNING artist_id, ripple_id;
-						`;
-					}
-
-					if (!rippled.has(i)) {
-						rippled.add(i);
+		console.time('findMatches');
+		const _songsMap = new Map<number, SongAristsGenres>();
+		const _artists = [];
+		for (const song of songs) {
+			for (const artist of song.artists) {
+				for (const genre of artist.genres) {
+					if (genres.includes(genre.name)) {
+						_songsMap.set(song.id, song);
+						_artists.push(artist);
 					}
 				}
-			}
-
-			if (rippled.has(i)) continue;
-			let innerRippled = new Set<number>();
-			for (let j = i; j < clusters.length; j++) {
-				if (innerRippled.has(j)) continue;
-
-				let rippleClusters: Cluster[] = [clusters[j]];
-				let runningCenter = this.calculateCenter(rippleClusters);
-				innerRippled.add(j);
-
-				for (let k = j; k < clusters.length; k++) {
-					if (j !== k && !innerRippled.has(k)) {
-						if (
-							this.distance(runningCenter, clusters[k]) -
-								clusters[k].radius <=
-							this.rippleThreshold
-						) {
-							rippleClusters.push(clusters[k]);
-							runningCenter = this.calculateCenter(rippleClusters);
-							innerRippled.add(k);
-						}
-					}
-				}
-
-				const radius = this.calculateRadius(rippleClusters);
-
-				const newRipple: Ripple = {
-					id: -1,
-					x: runningCenter.x,
-					y: runningCenter.y,
-					radius: radius,
-					clusters: rippleClusters,
-					songs: [],
-					artists: [],
-				};
-
-				ripples.push(JSON.parse(JSON.stringify(newRipple)));
 			}
 		}
+		console.timeEnd('findMatches');
+
+		const _songs = Array.from(_songsMap.values());
+
+		console.time('createAssociations');
+		await this.createSongRippleAssociations(ripple.id, _songs);
+		await this.createArtistRippleAssociations(ripple.id, _artists);
+		console.timeEnd('createAssociations');
+
+		console.timeEnd('createRippleAssociations');
+	}
+
+	private async createSongRippleAssociations(rippleId: number, songs: SongAristsGenres[]) {
+		if (!this.#sql) return;
+		for (const song of songs) {
+			await this.#sql`
+			INSERT INTO ripple_songs (song_id, ripple_id)
+			VALUES (${song.id}, ${rippleId})
+			ON CONFLICT (song_id, ripple_id)
+			DO UPDATE SET updated_at = NOW()
+			RETURNING song_id, ripple_id;
+			`;
+		}
+	}
+
+	private async createArtistRippleAssociations(rippleId: number, artists: any[]) {
+		if (!this.#sql) return;
+		for (const artist of artists) {
+			await this.#sql`
+			INSERT INTO ripple_artists (artist_id, ripple_id)
+			VALUES (${artist.id}, ${rippleId})
+			ON CONFLICT (artist_id, ripple_id)
+			DO UPDATE SET updated_at = NOW()
+			RETURNING artist_id, ripple_id;
+			`;
+		}
+	}
+
+	private async persistRipple(ripple: Ripple): Promise<number> {
+		if (!this.#sql) throw new Error("No db connection");
+
+		const response = await this.#sql`
+		INSERT INTO ripples (x, y, radius)
+		VALUES (${ripple.x}, ${ripple.y}, ${ripple.radius})
+		ON CONFLICT (radius, x, y)
+		DO UPDATE SET updated_at = NOW()
+		RETURNING id, x, y, radius;
+		`;
+		return response[0].id;
+	}
+
+	private async createClusterRippleAssociations(ripple: Ripple) {
+		if (!this.#sql) return;
+		for (const cluster of ripple.clusters) {
+			const clusterExists = await this.#sql`
+				SELECT 1 FROM clusters WHERE id = ${cluster.id} LIMIT 1;
+			`;
+			if (clusterExists.length > 0) {
+				await this.#sql`
+				INSERT INTO ripple_clusters (ripple_id, cluster_id)
+				VALUES (${ripple.id}, ${cluster.id})
+				RETURNING ripple_id, cluster_id;
+				`;
+			}
+		}
+	}
+
+	private async combineOverlappingRipples(ripples: Ripple[]): Promise<Ripple[]> {
+		console.log('considering ripples:', { rippleIds: ripples.map(r => r.id) });
+		console.time('combineOverlappingRipples');
+		const metrics = {
+			initialRipples: ripples.length,
+			mergedRipples: 0,
+		};
 
 		let combinedRipples: Ripple[] = [];
 		let processed = new Set<number>();
+		let mergeLog: { source: number[], result: number }[] = []; // track merges
 
+		// iterate through all ripples to find overlaps
 		for (let i = 0; i < ripples.length; i++) {
 			if (processed.has(i)) continue;
 
+			// deep clone current ripple
 			let currentRipple = JSON.parse(JSON.stringify(ripples[i]));
 			processed.add(i);
+			let mergedIds = [currentRipple.id]; // track ids being merged
 
-			// Look for other ripples to combine with
+			// check other ripples for potential merging
 			for (let j = 0; j < ripples.length; j++) {
 				if (i === j || processed.has(j)) continue;
-				// Check if ripples are close enough to combine
-				if (
-					this.distance(currentRipple, ripples[j]) -
-						ripples[j].radius - currentRipple.radius <=
-					this.rippleThreshold
-				) {
-					// Combine clusters from both ripples
-					currentRipple.clusters = [
-						...currentRipple.clusters,
-						...ripples[j].clusters,
-					];
 
-					// Recalculate center and radius for combined ripple
+				if (this.distance(currentRipple, ripples[j]) - ripples[j].radius - currentRipple.radius <= this.rippleThreshold) {
+					mergedIds.push(ripples[j].id); // add merged ripple id
+					currentRipple.clusters = [...currentRipple.clusters, ...ripples[j].clusters];
 					const { x, y } = this.calculateCenter(currentRipple.clusters);
 					currentRipple.x = x;
 					currentRipple.y = y;
 					currentRipple.radius = this.calculateRadius(currentRipple.clusters);
-
 					processed.add(j);
+					metrics.mergedRipples++;
 				}
 			}
-
 			combinedRipples.push(currentRipple);
-		}
 
-		for (let i = 0; i < combinedRipples.length; i++) {
-			if (!this.#sql) return [];
-			const ripple = combinedRipples[i];
-			const genres: string[] = [];
-
-			for (const cluster of ripple.clusters) {
-				if (!this.#sql) return [];
-				const result = await this.#sql`
-					SELECT genre_name as "genreName" FROM cluster_genres WHERE "cluster_id" = ${cluster.id}
-				`;
-
-				for (const record of result) {
-					let genre = record.genreName;
-					genres.push(genre);
-				}
-			}
-
-			const _songsMap = new Map<number, SongAristsGenres>(); // Map to ensure unique songs
-			const _artists = []; // To collect matching artists
-
-			for (let z = 0; z < songs.length; z++) {
-				for (let j = 0; j < songs[z].artists.length; j++) {
-					const artist = songs[z].artists[j];
-					for (let k = 0; k < artist.genres.length; k++) {
-						const genre = artist.genres[k];
-
-						if (genres.includes(genre.name)) {
-							_songsMap.set(songs[z].id, songs[z]); // Store unique song by id
-							_artists.push(artist);
-						}
-					}
-				}
-			}
-
-			// Convert Map values to an array (unique list of songs)
-			const _songs: SongAristsGenres[] = Array.from(_songsMap.values());
-
-			let response = await this.#sql`
-            INSERT INTO ripples (x, y, radius)
-            VALUES (${ripple.x}, ${ripple.y}, ${ripple.radius})
-            ON CONFLICT (radius, x, y)
-            DO UPDATE SET
-                updated_at = NOW()
-            RETURNING id, x, y, radius;
-            `;
-			combinedRipples[i].id = response[0].id;
-
-			for (let j = 0; j < _songs.length; j++) {
-				let response = await this.#sql`
-				INSERT INTO ripple_songs (song_id, ripple_id)
-				VALUES (${_songs[j].id}, ${combinedRipples[i].id})
-				ON CONFLICT (song_id, ripple_id)
-				DO UPDATE SET
-					updated_at = NOW()
-				RETURNING song_id, ripple_id;
-                `;
-			}
-
-			for (let j = 0; j < _artists.length; j++) {
-				let response = await this.#sql`
-                INSERT INTO ripple_artists (artist_id, ripple_id)
-                VALUES (${_artists[j].id}, ${combinedRipples[i].id})
-                ON CONFLICT (artist_id, ripple_id)
-                DO UPDATE SET
-                    updated_at = NOW()
-                RETURNING artist_id, ripple_id;
-                `;
+			// log merge if multiple ripples were combined
+			if (mergedIds.length > 1) {
+				console.log('Merged ripples:', { sourceIds: mergedIds });
 			}
 		}
 
-		for (let i = 0; i < combinedRipples.length; i++) {
-			const ripple = combinedRipples[i];
-			for (let j = 0; j < combinedRipples[i].clusters.length; j++) {
-				if (this.#sql) {
-					const clusterExists = await this.#sql`
-						SELECT 1 FROM clusters WHERE id = ${ripple.clusters[j].id} LIMIT 1;
-					`;
+		console.log('Ripple Combination Metrics:', {
+			...metrics,
+			finalRipples: combinedRipples.length,
+			timestamp: new Date().toISOString()
+		});
+		console.timeEnd('combineOverlappingRipples');
+		return combinedRipples;
+	}
 
-					if (clusterExists.length > 0) {
-						// Only insert if cluster exists
-						let response = await this.#sql`
-						INSERT INTO ripple_clusters (ripple_id, cluster_id)
-						VALUES (${ripple.id}, ${ripple.clusters[j].id})
-						RETURNING ripple_id, cluster_id;
-						`;
-					}
+	private createNewRipple(clusters: Cluster[], startIdx: number, rippled: Set<number>): Ripple {
+		let innerRippled = new Set<number>();
+		let rippleClusters: Cluster[] = [clusters[startIdx]];
+		let runningCenter = this.calculateCenter(rippleClusters);
+		innerRippled.add(startIdx);
+
+		// find nearby clusters to add to ripple
+		for (let k = startIdx; k < clusters.length; k++) {
+			if (startIdx !== k && !innerRippled.has(k)) {
+				// check if cluster is within threshold distance
+				if (
+					this.distance(runningCenter, clusters[k]) -
+					clusters[k].radius <=
+					this.rippleThreshold
+				) {
+					rippleClusters.push(clusters[k]);
+					runningCenter = this.calculateCenter(rippleClusters);
+					innerRippled.add(k);
 				}
 			}
 		}
 
-		for (let i = 0; i < combinedRipples.length; i++) {
-			if (this.#sql) {
-				let response = await this.#sql`
+		// mark all included clusters as processed
+		innerRippled.forEach(idx => rippled.add(idx));
+
+		// create new ripple obj
+		return {
+			id: -1,
+			x: runningCenter.x,
+			y: runningCenter.y,
+			radius: this.calculateRadius(rippleClusters),
+			clusters: rippleClusters,
+			songs: [],
+			artists: [],
+		};
+	}
+
+	async createRipples(clusters: Cluster[], songs: SongAristsGenres[]): Promise<Ripple[]> {
+		console.time('createRipples:total');
+		const metrics = {
+			existingRipplesProcessed: 0,
+			newRipplesCreated: 0,
+			clustersProcessed: clusters.length,
+			songsProcessed: songs.length,
+			combinedRipples: 0,
+			dbOperations: 0
+		};
+
+		const ripples: Ripple[] = [];
+		let rippled = new Set<number>();
+
+		// process existing ripples
+		console.time('createRipples:existingRipples');
+		const existingRippleMap = new Map<number, Ripple>(); // track ripples by id
+
+		for (const cluster of clusters) {
+			if (rippled.has(clusters.indexOf(cluster))) continue; // skip if already processed
+
+			console.time('findNearbyRipples');
+			const nearbyRipples = await this.findNearbyRipples(cluster);
+			console.timeEnd('findNearbyRipples');
+			console.log('cluster:', { clusterId: cluster.id, clusterX: cluster.x, clusterY: cluster.y, clusterRadius: cluster.radius });
+			console.log('nearby ripples:', { nearbyRipples: nearbyRipples.map(r => r.id) });
+
+			metrics.dbOperations++;
+			metrics.existingRipplesProcessed += nearbyRipples.length;
+
+			for (const rippleData of nearbyRipples) {
+				// get or create ripple obj
+				let ripple = existingRippleMap.get(rippleData.ripple_id) || {
+					id: rippleData.ripple_id,
+					x: rippleData.x,
+					y: rippleData.y,
+					radius: rippleData.radius,
+					clusters: rippleData.clusters,
+					songs: [],
+					artists: [],
+				};
+
+				// check distance
+				if (this.distance(cluster, ripple) - ripple.radius - cluster.radius <= this.rippleThreshold) {
+					console.time('processExistingRipple');
+					ripple.clusters.push(cluster);
+					const { x, y } = this.calculateCenter(ripple.clusters);
+					ripple.x = x;
+					ripple.y = y;
+					ripple.radius = this.calculateRadius(ripple.clusters);
+
+					existingRippleMap.set(ripple.id, ripple); // update map
+					rippled.add(clusters.indexOf(cluster));
+					console.timeEnd('processExistingRipple');
+				}
+			}
+		}
+
+		console.log('existing ripples ids:', { existingRippleIds: Array.from(existingRippleMap.keys()) });
+
+		// persist all modified ripples once
+		for (const ripple of existingRippleMap.values()) {
+			await this.persistRipple(ripple);
+			await this.createRippleAssociations(ripple, songs);
+			metrics.dbOperations += 2;
+		}
+
+		console.timeEnd('createRipples:existingRipples');
+
+		// create new ripples for unprocessed clusters
+		console.time('createRipples:newRipples');
+		for (let i = 0; i < clusters.length; i++) {
+			if (rippled.has(i)) continue;
+			console.time('createNewRipple');
+			const newRipple = this.createNewRipple(clusters, i, rippled);
+			ripples.push(newRipple);
+			metrics.newRipplesCreated++;
+			console.log('Created new ripple:', { clusterId: clusters[i].id });
+			console.timeEnd('createNewRipple');
+		}
+		console.timeEnd('createRipples:newRipples');
+
+		// combine ripples
+		console.time('createRipples:combineRipples');
+		const combinedRipples = await this.combineOverlappingRipples(ripples);
+		metrics.combinedRipples = combinedRipples.length;
+		console.timeEnd('createRipples:combineRipples');
+
+		// persist combined ripples
+		console.time('createRipples:persistCombined');
+		for (const ripple of combinedRipples) {
+			console.time('persistRipple');
+			ripple.id = await this.persistRipple(ripple);
+			console.log('Persisted ripple:', {
+				rippleId: ripple.id,
+				clusterCount: ripple.clusters.length
+			});
+			await this.createRippleAssociations(ripple, songs);
+			await this.createClusterRippleAssociations(ripple);
+			metrics.dbOperations += 3;
+
+			// create user association
+			if (this.#sql && this.#session?.user?.id) {
+				await this.#sql`
 				INSERT INTO ripple_users (ripple_id, user_id)
-				VALUES (${combinedRipples[i].id}, ${this.#session!.user!.id})
+				VALUES (${ripple.id}, ${this.#session.user.id})
 				ON CONFLICT (ripple_id, user_id)
 				DO UPDATE SET updated_at = NOW();
 				`;
+				metrics.dbOperations++;
 			}
+			console.timeEnd('persistRipple');
 		}
+		console.timeEnd('createRipples:persistCombined');
+
+		console.timeEnd('createRipples:total');
+		console.log('Ripple Creation Metrics:', {
+			...metrics,
+			finalRippleCount: combinedRipples.length,
+			processedClusters: rippled.size,
+			timestamp: new Date().toISOString()
+		});
 
 		return combinedRipples;
 	}
@@ -812,13 +774,13 @@ class NeonClient {
 
 	public async fetchRipples(): Promise<number[]> {
 		if (!this.#sql || !this.#session?.user) return [];
-		
+
 		const result = await this.#sql`
 			SELECT DISTINCT ripple_id as "rippleId" 
 			FROM ripple_users 
 			WHERE user_id = ${this.#session.user.id}
 		`;
-		
+
 		return result.map(record => Number(record.rippleId));
 	}
 
