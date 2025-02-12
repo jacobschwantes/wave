@@ -811,21 +811,15 @@ class NeonClient {
 	}
 
 	public async fetchRipples(): Promise<number[]> {
-		const ripples = [];
-		if (this.#sql && this.#session && this.#session.user) {
-			const result = await this.#sql`
-				SELECT ripple_id as "rippleId" FROM ripple_users WHERE "user_id" = ${
-					this.#session.user.id
-				}
-			`;
-
-			for (const record of result) {
-				let rippleId = Number(record.rippleId);
-				ripples.push(rippleId);
-			}
-		}
-
-		return ripples;
+		if (!this.#sql || !this.#session?.user) return [];
+		
+		const result = await this.#sql`
+			SELECT DISTINCT ripple_id as "rippleId" 
+			FROM ripple_users 
+			WHERE user_id = ${this.#session.user.id}
+		`;
+		
+		return result.map(record => Number(record.rippleId));
 	}
 
 	public async fetchSpotifyIdsOfRipple(rippleId: number) {
