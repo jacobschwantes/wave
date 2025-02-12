@@ -167,22 +167,31 @@ class SpotifyClient {
 		return songs;
 	}
 
-	public async getUserSongs(): Promise<Map<Number, ClientSong[]>> {
+	public async getRippleSongs(): Promise<Map<number, ClientSong[]>> {
 		if (!this.#neonClient) return new Map();
-		const ripples = await this.#neonClient.fetchRipples();
-
-		const rippleToIds = await this.#neonClient.fetchSpotifySongIds(ripples);
-		const rippleToClientSongs = new Map<Number, ClientSong[]>();
-		let i = 0;
-		for (const spotifyIds of rippleToIds.values()) {
-			if (spotifyIds.length === 0) continue;
-			const songs = await this.getBatchSongs(spotifyIds);
-			const keysArray = Array.from(rippleToIds.keys()); // Convert iterator to array
-			rippleToClientSongs.set(keysArray[i], songs);
-			i++;
+		
+		const rippleIds = await this.#neonClient.fetchRipples();
+		const rippleIdsToSpotifyIds = await this.#neonClient.fetchSpotifySongIds(rippleIds);
+		const allSpotifyIds = new Set<string>();
+		const rippleToSongIds = new Map<number, string[]>();
+		
+		for (const [rippleId, songIds] of rippleIdsToSpotifyIds.entries()) {
+			if (Array.isArray(songIds) && songIds.length > 0) {
+				rippleToSongIds.set(Number(rippleId), songIds);
+				songIds.forEach(id => allSpotifyIds.add(id));
+			}
+		}
+		
+		const allSongs = await this.getBatchSongs([...allSpotifyIds]);
+		const songLookup = new Map(allSongs.map(song => [song.id, song]));
+		
+		const rippleSongs = new Map<number, ClientSong[]>();
+		for (const [rippleId, songIds] of rippleToSongIds) {
+			const songs = songIds.map(id => songLookup.get(id)).filter((s): s is ClientSong => !!s);
+			rippleSongs.set(rippleId, songs);
 		}
 
-		return rippleToClientSongs;
+		return rippleSongs;
 	}
 
 	public async getSongsFromRippleId(rippleId: number): Promise<ClientSong[]> {

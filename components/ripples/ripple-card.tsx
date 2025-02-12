@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Card } from "./ui/card";
-import { AlbumCoverMarquee } from "./marquee";
+import { Card } from "../ui/card";
+import { AlbumCoverMarquee } from "../marquee";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
@@ -23,11 +23,8 @@ export function RippleCard({
   useEffect(() => {
     const _albumCovers = songs.map((song) => song.albumCover);
     setAlbumCovers(_albumCovers.slice(0, 3));
-    // get unique artists
     const uniqueArtists = [...new Set(songs.map((song) => song.artist))];
     setArtists(uniqueArtists.slice(0, 3));
-
-    console.log(rippleId, songs);
   }, []);
 
   return (
@@ -39,7 +36,7 @@ export function RippleCard({
       <Link
         className="w-full aspect-video"
         href={{
-          pathname: `/ripple/${rippleId}`
+          pathname: `/ripple/${rippleId}`,
         }}
       >
         <Card className="h-full w-full overflow-hidden py-4 flex flex-col gap-2 bg-gradient-to-br from-gray-100 to-gray-200">
@@ -48,9 +45,9 @@ export function RippleCard({
               <AlbumCoverMarquee covers={albumCovers} animate={isHovered} />
             ) : (
               <div className="h-full flex justify-start px-4">
-                <img 
-                  src={albumCovers[0]} 
-                  alt="album cover" 
+                <img
+                  src={albumCovers[0]}
+                  alt="album cover"
                   className="h-full aspect-square object-cover"
                 />
               </div>
@@ -62,7 +59,9 @@ export function RippleCard({
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-1">
                   <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">{"Minneapolis, MN"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {"Minneapolis, MN"}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <User className="w-4 h-4 text-muted-foreground" />
